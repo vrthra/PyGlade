@@ -193,7 +193,7 @@ def phase_1(alpha_in):
     sys.stdout.flush()
 
 def to_key(prefix):
-    return 'k' + ''.join([str(s) for s in prefix])
+    return '<k%s>'  % ''.join([str(s) for s in prefix])
 
 # if step i generalizes P rep[alpha] Q to
 # P alpha_1 (alt[alpha_2])* rep[alpha_3] Q
@@ -268,7 +268,7 @@ def main(inp):
     regex = phase_1([i for i in inp])
     print(regex)
     cfg, start = phase_2(regex)
-    print('Start: ', start)
+    print('<start> ::= ', start)
     for k in cfg:
         print("%s ::= " % k)
         for alt in cfg[k]:
