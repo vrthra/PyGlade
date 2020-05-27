@@ -5,6 +5,7 @@ import sys
 import itertools
 
 import check
+import fuzz
 
 # What samples to use for a{n} to conirm that a* is a valid regex.
 SAMPLES_FOR_REP = [0, 1, 2]
@@ -263,6 +264,47 @@ def extract_grammar(regex, prefix):
         return extract_one(regex, prefix)
     assert False
 
+def gen_new_grammar(a, b, key, cfg):
+    # replace all instances of a and b with key
+    new_g = {}
+    for k in cfg:
+        new_alts = []
+        new_g[k] = new_alts
+        for rule in cfg[k]:
+            new_rule = [key if token in {a, b} else token for token in rule]
+            new_alts.append(new_rule)
+    rules = (new_g[a] + new_g[b])
+    defs = {str(r):r for r in  rules}
+    new_g[key] = [defs[l] for l in defs]
+    return new_g
+
+def consider_merging(a, b, key, cfg, start):
+    g = gen_new_grammar(a, b, key, cfg)
+    fzz = fuzz.LimitFuzzer(g)
+    for i in range(10):
+        v = fzz.fuzz(start)
+        r = check.check(v)
+        if not r:
+            return None
+    return g
+
+# the phase_3 is merging of keys
+# The keys are unordered pairs of repetition keys A'_i, A'_j which corresponds
+# to repetition subexpressions
+def phase_3(cfg, start):
+    # first collect all rep
+    repetitions = [k for k in cfg if k.endswith('_rep>')]
+    for i,(a,b) in enumerate(itertools.product(repetitions, repeat=2)):
+        if a == b: continue
+        c = to_key([i], '_')
+        res = consider_merging(a,b, c, cfg, start)
+        if res:
+            print('Merged:', a, b, " => ", c)
+            cfg = res
+        else:
+            continue
+    return cfg
+
 def main(inp):
     # phase 1
     regex = phase_1([i for i in inp])
@@ -273,8 +315,17 @@ def main(inp):
         print("%s ::= " % k)
         for alt in cfg[k]:
             print("   | " + ' '.join(alt))
-    with open('grammar.json', 'w+') as f:
+    with open('grammar_.json', 'w+') as f:
         json.dump({'[start]': start, '[grammar]': cfg}, indent=4, fp=f)
+
+    merged = phase_3(cfg, start)
+    for k in merged:
+        print("%s ::= " % k)
+        for alt in merged[k]:
+            print("   | " + ' '.join(alt))
+
+    with open('grammar.json', 'w+') as f:
+        json.dump({'[start]': start, '[grammar]': merged}, indent=4, fp=f)
 
 if __name__ == '__main__':
     # we assume check is modified to include the

@@ -74,5 +74,6 @@ def main(fn):
             correct += 1
     print('Fuzz:', correct, '/', total)
 
-import sys
-main(sys.argv[1])
+if __name__ == '__main__':
+    import sys
+    main(sys.argv[1])
