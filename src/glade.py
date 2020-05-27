@@ -63,28 +63,50 @@ class One(Regex):
     def __repr__(self): return repr(self.o) if self.o else ''
 
 
-def gen_alt(arr):
-    length = len(arr)
+# Alternations: If generalizing P alt[alpha]Q, then
+# for  each decomposition alpha = a_1 a_2, where a_1 != [] and
+# a_2 != [], generate P (rep[alpha_1] + alt[alpha_2]) Q
+# ...
+# in both cases, P alpha Q is also generated
+# + is alternation i.e `|' in regular expression
+
+# Ordering: If generalizing P alt[alpha] Q we prioritize shorter
+# alpha_1.
+# In either case, P alpha Q is ranked last
+# Note that candidate repetitions and candidate alternations can
+# be ordered independently
+def gen_alt(alpha):
+    length = len(alpha)
     # alpha_1 != e and alpha_2 != e
     for i in range(1,length): # shorter alpha_1 prioritized
-        alpha_1, alpha_2 = arr[:i], arr[i:]
+        alpha_1, alpha_2 = alpha[:i], alpha[i:]
         assert alpha_1
         assert alpha_2
         for a1 in gen_rep(alpha_1):
             for a2 in gen_alt(alpha_2):
                 yield Alt(a1, a2)
     if length: # this is the final choice.
-        yield One(arr)
+        yield One(alpha)
     return
 
 
-def gen_rep(arr):
-    length = len(arr)
+# Repetitions: If generalizing P rep[alpha]Q, then
+# for  each decomposition alpha = a_1 a_2 a_3 such that
+# a_2 != [], generate P alpha_1(alt[alpha_2])* rep[alpha_3] Q
+# ...
+# in both cases, P alpha Q is also generated
+
+# Ordering: If generalizing P rep[alpha] Q we prioritize shorter
+# alpha_1 since alpha_1 is not further generalized. Second, we
+# prioritize longer alpha_2
+# In either case, P alpha Q is ranked last
+def gen_rep(alpha):
+    length = len(alpha)
     for i in range(length): # shorter alpha1 prioritized
-        alpha_1 = arr[:i]
+        alpha_1 = alpha[:i]
         # alpha_2 != e
         for j in range(i+1, length+1): # longer alpha2 prioritized
-            alpha_2, alpha_3 = arr[i:j], arr[j:]
+            alpha_2, alpha_3 = alpha[i:j], alpha[j:]
             assert alpha_2
             for a2 in gen_alt(alpha_2):
                 for a3 in gen_rep(alpha_3):
@@ -92,7 +114,7 @@ def gen_rep(arr):
                 if not alpha_3:
                     yield Seq([One(alpha_1), Rep(a2)])
     if length: # the final choice
-        yield One(arr)
+        yield One(alpha)
     return
 
 def to_strings(regex):
@@ -122,7 +144,7 @@ str_db = {}
 regex_map = {}
 
 
-def phase_1(my_alt):
+def phase_1(alpha_in):
     # active learning of regular righthandside from bastani et al.
     # the idea is as follows: We choose a single nt to refine, and a single
     # alternative at a time.
@@ -133,7 +155,13 @@ def phase_1(my_alt):
     # the string is accepted (adv: verify that the derivation tree is
     # as expected). Do this for each alternative, and we have the list of actual
     # alternatives.
-    for regex in gen_rep(my_alt):
+
+    # seed input alpha_in is annotated rep(alpha_in)
+    # Then, each generalization step selects a single bracketed substring
+    # T[alpha] and generates candiates based on decompositions of alpha
+    # i.e. an expression of alpha as alpha = a_1, a_2, ..a_k
+
+    for regex in gen_rep(alpha_in):
         all_true = False
         for expr in to_strings(regex):
             if regex_map.get(regex, False):
