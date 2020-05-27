@@ -4,8 +4,6 @@ import random
 import sys
 import itertools
 
-import mingen
-import to_grammar
 import check
 
 # What samples to use for a{n} to conirm that a* is a valid regex.
@@ -97,30 +95,6 @@ def gen_rep(arr):
         yield One(arr)
     return
 
-def generate_expansion_db(tree, map_str, grammar):
-    """
-    Generate a database of possible expansions for each non terminal from
-    the given derivation tree, and store it in map_str
-    """
-    node, children, *_ = tree
-    if node in grammar:
-        if node not in map_str:
-            map_str[node] = {mingen.all_terminals(tree)}
-        else:
-            map_str[node].add(mingen.all_terminals(tree))
-
-    for c in children:
-        generate_expansion_db(c, map_str, grammar)
-    return map_str
-
-def tree_to_str(node, nt, expansion):
-    """Reconstruct the tree replacing nt with expansion"""
-    node, children, *_ = node
-    if node == nt: return expansion
-    else:
-        if not children: return node
-        else: return ''.join(tree_to_str(c, nt, expansion) for c in children)
-
 def to_strings(regex):
     """
     We are given the toekn, and the regex that is being checked to see if it
@@ -148,7 +122,7 @@ str_db = {}
 regex_map = {}
 
 
-def process_alt(my_alt):
+def phase_1(my_alt):
     # active learning of regular righthandside from bastani et al.
     # the idea is as follows: We choose a single nt to refine, and a single
     # alternative at a time.
@@ -191,7 +165,8 @@ def process_alt(my_alt):
     sys.stdout.flush()
 
 def main(inp):
-    regex = process_alt([i for i in inp])
+    # phase 1
+    regex = phase_1([i for i in inp])
     print(regex)
 
 if __name__ == '__main__':

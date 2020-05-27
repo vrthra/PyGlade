@@ -17,7 +17,7 @@ def check(s, label=None):
 import re
 def _check(s):
     try:
-        match = re.match( r'[(]1(2|3)4[)]', s) 
+        match = re.match( r'[(]1(2|3)*4[)]', s)
         #parse_.main(s)
         if match: return True
         return False
