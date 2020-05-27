@@ -192,10 +192,79 @@ def phase_1(alpha_in):
     regex_map.clear()
     sys.stdout.flush()
 
+
+# if step i generalizes P rep[alpha] Q to
+# P alpha_1 (alt[alpha_2])* rep[alpha_3] Q
+# we generate productions
+# A_i -> alpha_1 A'_i A_k
+# A'i -> \e + A'_i A_j
+# equivalent to A_i -> alpha_1 A_j* A_k
+# whre A_k comes from rep[alpha_3] and
+# A_j comes from alt[Alpha_2]
+
+
+# If step i generalizes P alt[alpha] Q to
+# P (rep[alpha_1] + alt[alpha_2]) Q
+# we include production
+# A_i -> A_j + A_k
+# where A_j comes from rep[alpha_1] and
+# A_k comes from alt[alpha_2]
+
+def extract_seq(regex, prefix):
+    # Each item gets its own grammar with prefix.
+    g = {}
+    rule = []
+    for i,item in enumerate(regex.arr):
+        g, k = extract_grammar(item, prefix + [i])
+        g.update(g)
+        rule.append(k)
+    g[tuple(prefix)] = [rule]
+    return g, tuple(prefix)
+
+def extract_rep(regex, prefix):
+    # a
+    g, k = extract_grammar(regex.a, prefix + [0])
+    g[tuple(prefix)] = [[tuple(prefix), k], []]
+    return g, tuple(prefix)
+
+def extract_alt(regex, prefix):
+    # a1, a2
+    g1, k1 = extract_grammar(regex.a1, prefix + [0])
+    g2, k2 = extract_grammar(regex.a2, prefix + [1])
+    g = {**g1, **g2}
+    g[tuple(prefix)] = [[k1], [k2]]
+    return g, tuple(prefix)
+
+def extract_one(regex, prefix):
+    # one is not a non terminal
+    return {}, regex.o
+
+def phase_2(regex):
+    # the basic idea is to first translate the regexp into a
+    # CFG, where the terminal symbols are the symbols in the
+    # regex, and the generalization steps are nonterminals
+    # and next, to equate the nonterminals in that grammar
+    # to each other
+    # Alt, Rep, Seq, One
+    prefix = [0]
+    return extract_grammar(regex, prefix)
+
+def extract_grammar(regex, prefix):
+    if isinstance(regex, Rep):
+        return extract_rep(regex, prefix)
+    elif isinstance(regex, Alt):
+        return extract_alt(regex, prefix)
+    elif isinstance(regex, Seq):
+        return extract_seq(regex, prefix)
+    elif isinstance(regex, One):
+        return extract_one(regex, prefix)
+    assert False
+
 def main(inp):
     # phase 1
     regex = phase_1([i for i in inp])
     print(regex)
+    cfg = phase_2(regex)
 
 if __name__ == '__main__':
     # we assume check is modified to include the
