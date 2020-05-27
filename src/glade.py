@@ -192,8 +192,8 @@ def phase_1(alpha_in):
     regex_map.clear()
     sys.stdout.flush()
 
-def to_key(prefix):
-    return '<k%s>'  % ''.join([str(s) for s in prefix])
+def to_key(prefix, suffix=''):
+    return '<k%s%s>'  % (''.join([str(s) for s in prefix]), suffix)
 
 # if step i generalizes P rep[alpha] Q to
 # P alpha_1 (alt[alpha_2])* rep[alpha_3] Q
@@ -226,8 +226,8 @@ def extract_seq(regex, prefix):
 def extract_rep(regex, prefix):
     # a
     g, k = extract_grammar(regex.a, prefix + [0])
-    g[to_key(prefix)] = [[to_key(prefix), k], []]
-    return g, to_key(prefix)
+    g[to_key(prefix, '_rep')] = [[to_key(prefix, '_rep'), k], []]
+    return g, to_key(prefix, '_rep')
 
 def extract_alt(regex, prefix):
     # a1, a2
