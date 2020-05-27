@@ -192,6 +192,8 @@ def phase_1(alpha_in):
     regex_map.clear()
     sys.stdout.flush()
 
+def to_key(prefix):
+    return 'k' + ''.join([str(s) for s in prefix])
 
 # if step i generalizes P rep[alpha] Q to
 # P alpha_1 (alt[alpha_2])* rep[alpha_3] Q
@@ -215,29 +217,29 @@ def extract_seq(regex, prefix):
     g = {}
     rule = []
     for i,item in enumerate(regex.arr):
-        g, k = extract_grammar(item, prefix + [i])
-        g.update(g)
+        g_, k = extract_grammar(item, prefix + [i])
+        g.update(g_)
         rule.append(k)
-    g[tuple(prefix)] = [rule]
-    return g, tuple(prefix)
+    g[to_key(prefix)] = [rule]
+    return g, to_key(prefix)
 
 def extract_rep(regex, prefix):
     # a
     g, k = extract_grammar(regex.a, prefix + [0])
-    g[tuple(prefix)] = [[tuple(prefix), k], []]
-    return g, tuple(prefix)
+    g[to_key(prefix)] = [[to_key(prefix), k], []]
+    return g, to_key(prefix)
 
 def extract_alt(regex, prefix):
     # a1, a2
     g1, k1 = extract_grammar(regex.a1, prefix + [0])
     g2, k2 = extract_grammar(regex.a2, prefix + [1])
     g = {**g1, **g2}
-    g[tuple(prefix)] = [[k1], [k2]]
-    return g, tuple(prefix)
+    g[to_key(prefix)] = [[k1], [k2]]
+    return g, to_key(prefix)
 
 def extract_one(regex, prefix):
     # one is not a non terminal
-    return {}, regex.o
+    return {}, ''.join(regex.o)
 
 def phase_2(regex):
     # the basic idea is to first translate the regexp into a
@@ -247,7 +249,8 @@ def phase_2(regex):
     # to each other
     # Alt, Rep, Seq, One
     prefix = [0]
-    return extract_grammar(regex, prefix)
+    g, k = extract_grammar(regex, prefix)
+    return g, k
 
 def extract_grammar(regex, prefix):
     if isinstance(regex, Rep):
@@ -264,7 +267,12 @@ def main(inp):
     # phase 1
     regex = phase_1([i for i in inp])
     print(regex)
-    cfg = phase_2(regex)
+    cfg, start = phase_2(regex)
+    print('Start: ', start)
+    for k in cfg:
+        print("%s ::= " % k)
+        for alt in cfg[k]:
+            print("   | " + ' '.join(alt))
 
 if __name__ == '__main__':
     # we assume check is modified to include the
