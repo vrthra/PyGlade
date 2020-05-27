@@ -273,6 +273,8 @@ def main(inp):
         print("%s ::= " % k)
         for alt in cfg[k]:
             print("   | " + ' '.join(alt))
+    with open('grammar.json', 'w+') as f:
+        json.dump({'[start]': start, '[grammar]': cfg}, indent=4, fp=f)
 
 if __name__ == '__main__':
     # we assume check is modified to include the
