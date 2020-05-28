@@ -1,10 +1,4 @@
 import sys, imp
-#import parse_ # does not have the .in_ construction for taints.
-#parse_ = imp.new_module('parse_')
-
-#def init_module(src):
-#    with open(src) as sf:
-#        exec(sf.read(), parse_.__dict__)
 
 exec_map = {}
 def check(s, label=None):
@@ -14,6 +8,9 @@ def check(s, label=None):
     exec_map[s] = v
     return v
 
+# This is the oracle. For now, we simply use a regex matcher
+# but you can replace it with any context free oracle. Return
+# True if your oracle agrees with the input.
 import re
 def _check(s):
     try:
