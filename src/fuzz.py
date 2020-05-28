@@ -1,6 +1,7 @@
 # ### Fuzzer
 
 import random
+import config
 
 # +
 class Fuzzer:
@@ -67,7 +68,7 @@ def main(fn):
         mgrammar = json.load(fp=f)
     fuzzer = LimitFuzzer(mgrammar['[grammar]'])
     correct = 0
-    total = 100
+    total = config.FuzzVerify
     for i in range(total):
         val = fuzzer.fuzz(mgrammar['[start]'])
         if val:

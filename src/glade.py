@@ -6,9 +6,7 @@ import itertools
 
 import check
 import fuzz
-
-# What samples to use for a{n} to conirm that a* is a valid regex.
-SAMPLES_FOR_REP = [0, 1, 2]
+import config
 
 class Regex:
     def to_rules(self):
@@ -19,7 +17,7 @@ class Regex:
                 yield a2
         elif  isinstance(self, Rep):
             for a3 in self.a.to_rules():
-                for n in SAMPLES_FOR_REP:
+                for n in config.SAMPLES_FOR_REP:
                     yield a3 * n
         elif  isinstance(self, Seq):
             for a4 in self.arr[0].to_rules():
@@ -281,7 +279,7 @@ def gen_new_grammar(a, b, key, cfg):
 def consider_merging(a, b, key, cfg, start):
     g = gen_new_grammar(a, b, key, cfg)
     fzz = fuzz.LimitFuzzer(g)
-    for i in range(10):
+    for i in range(config.P3Check):
         v = fzz.fuzz(start)
         r = check.check(v)
         if not r:
