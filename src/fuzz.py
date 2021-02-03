@@ -47,11 +47,8 @@ class LimitFuzzer(Fuzzer):
         global COST
         super().__init__(grammar)
         self.key_cost = {}
-        if COST is not None:
-            self.cost = COST
-        else:
-            COST = self.compute_cost(grammar)
-            self.cost = COST
+        COST = self.compute_cost(grammar)
+        self.cost = COST
 
     def compute_cost(self, grammar):
         cost = {}
