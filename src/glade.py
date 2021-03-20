@@ -104,7 +104,8 @@ def gen_rep(alpha):
     for i in range(length): # shorter alpha1 prioritized
         alpha_1 = alpha[:i]
         # alpha_2 != e
-        for j in range(i+1, length+1): # longer alpha2 prioritized
+        for k in range(i+1, length+1): # longer alpha2 prioritized
+            j = length - (k - (i+1))
             alpha_2, alpha_3 = alpha[i:j], alpha[j:]
             assert alpha_2
             for a2 in gen_alt(alpha_2):
@@ -118,7 +119,7 @@ def gen_rep(alpha):
 
 def to_strings(regex):
     """
-    We are given the toekn, and the regex that is being checked to see if it
+    We are given the token, and the regex that is being checked to see if it
     is the correct abstraction. Hence, we first generate all possible rules
     that can result from this regex.
     The complication is that str_db contains multiple alternative strings for
@@ -157,7 +158,7 @@ def phase_1(alpha_in):
 
     # seed input alpha_in is annotated rep(alpha_in)
     # Then, each generalization step selects a single bracketed substring
-    # T[alpha] and generates candiates based on decompositions of alpha
+    # T[alpha] and generates candidates based on decompositions of alpha
     # i.e. an expression of alpha as alpha = a_1, a_2, ..a_k
 
     for regex in gen_rep(alpha_in):
