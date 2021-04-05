@@ -3,7 +3,7 @@ import json
 import random
 import sys
 import itertools
-
+import copy
 import check
 import fuzz
 import config
@@ -11,14 +11,23 @@ import config
 class Regex:
     def to_rules(self):
         if isinstance(self, Alt):
-            for a1 in self.a1.to_rules():
-                yield a1
-            for a2 in self.a2.to_rules():
-                yield a2
+            if self.newly_generalized:
+                for a1 in self.a1.to_rules():
+                    yield a1
+                for a2 in self.a2.to_rules():
+                    yield a2
+            else:  # It's part of the context, ignore rule.
+                for a1 in Seq([self.a1, self.a2]).to_rules():
+                    yield a1
+
         elif  isinstance(self, Rep):
-            for a3 in self.a.to_rules():
-                for n in config.SAMPLES_FOR_REP:
-                    yield a3 * n
+            if self.newly_generalized:
+                for a3 in self.a.to_rules():
+                    for n in config.SAMPLES_FOR_REP:
+                        yield a3 * n
+            else:  # It's part of the context, ignore rule.
+                for a3 in self.a.to_rules():
+                    yield a3
         elif  isinstance(self, Seq):
             for a4 in self.arr[0].to_rules():
                 if self.arr[1:]:
@@ -49,16 +58,30 @@ class Regex:
             assert False
 
 class Alt(Regex):
-    def __init__(self, a1, a2): self.a1, self.a2 = a1, a2
+    def __init__(self, a1, a2, extra):
+        self.a1 = a1
+        self.a2 = a2
+        self.newly_generalized = extra  # extra data used to mark if this object needs to be considered in the next check (if True) or not (if False).
+                            # That is, whether it's a part of the Context or not. See section 4.3:
+                            # Residual capturing the portion of L tilde that is generalized compared to L hat.
     def __repr__(self): return "(%s|%s)" % (self.a1, self.a2)
 class Rep(Regex):
-    def __init__(self, a): self.a = a
+    def __init__(self, a, extra):
+        self.a = a
+        self.newly_generalized = extra  # See section 4.3
     def __repr__(self): return "(%s)*" % self.a
 class Seq(Regex):
     def __init__(self, arr): self.arr = arr
     def __repr__(self): return "(%s)" % ' '.join([repr(a) for a in self.arr if a])
 class One(Regex):
-    def __init__(self, o): self.o = o
+    def __init__(self, o, extra):
+        self.o = o
+        self.next_gen = extra # Substrings are annotated with extra data to express possible further generalization options.
+                              # 0: for no generalization, 1: for Rep, 2: for Alt.
+                              # Section 4.1: These annotations indicate that the
+                              # bracketed substring in the current regular expression can be
+                              # generalized by adding either a repetition (if tau = rep) or an
+                              # alternation (if tau = alt).
     def __repr__(self): return repr(self.o) if self.o else ''
 
 
@@ -74,6 +97,9 @@ class One(Regex):
 # In either case, P alpha Q is ranked last
 # Note that candidate repetitions and candidate alternations can
 # be ordered independently
+# We don't genralize all decendandts in one go, but only one substring at each step. Section 4.1 page 4
+# each generalization step selects a single bracketed substring [\alpha]\tau and generates candidates based on decompositions of \alpha
+
 def gen_alt(alpha):
     length = len(alpha)
     # alpha_1 != e and alpha_2 != e
@@ -81,11 +107,9 @@ def gen_alt(alpha):
         alpha_1, alpha_2 = alpha[:i], alpha[i:]
         assert alpha_1
         assert alpha_2
-        for a1 in gen_rep(alpha_1):
-            for a2 in gen_alt(alpha_2):
-                yield Alt(a1, a2)
+        yield Alt(One(alpha_1, 1), One(alpha_2, 2), True)
     if length: # this is the final choice.
-        yield One(alpha)
+        yield One(alpha, 1)
     return
 
 
@@ -99,21 +123,19 @@ def gen_alt(alpha):
 # alpha_1 since alpha_1 is not further generalized. Second, we
 # prioritize longer alpha_2
 # In either case, P alpha Q is ranked last
+
 def gen_rep(alpha):
     length = len(alpha)
     for i in range(length): # shorter alpha1 prioritized
         alpha_1 = alpha[:i]
         # alpha_2 != e
-        for j in range(i+1, length+1): # longer alpha2 prioritized
+        for k in range(i+1, length+1): # longer alpha2 prioritized, see section 4.2
+            j = length - (k - (i+1))   # j is the inverse of k.
             alpha_2, alpha_3 = alpha[i:j], alpha[j:]
             assert alpha_2
-            for a2 in gen_alt(alpha_2):
-                for a3 in gen_rep(alpha_3):
-                    yield Seq([One(alpha_1), Rep(a2), a3])
-                if not alpha_3:
-                    yield Seq([One(alpha_1), Rep(a2)])
+            yield Seq([One(alpha_1, 0), Rep(One(alpha_2, 2), True), One(alpha_3, 1)])
     if length: # the final choice
-        yield One(alpha)
+        yield One(alpha, 0)
     return
 
 def to_strings(regex):
@@ -136,11 +158,83 @@ def to_strings(regex):
             with the expanded string.
             """
             expansion = ''.join(lst)
-            print("Expansion %s:\tregex:%s" % (repr(expansion), str(regex)))
+            #print("Expansion %s:\tregex:%s" % (repr(expansion), str(regex)))
             yield expansion
 
 str_db = {}
 regex_map = {}
+regex_dict = dict()
+NON_GENERALIZABLE = -1
+
+# The traverse function is the generator of candidates, it's called at each step once, it selects a terminal substring
+# and generates all posssible generalization. Each representing a candidate regex.
+
+def traverse(regex):
+    exp = False # Used to insure that we don't modify more that one branch in each step.
+    if isinstance(regex, Rep):
+        for x in traverse(regex.a):
+            if x == NON_GENERALIZABLE: # -1 means we reached a leaf that not is generalizable.
+                continue
+            else:
+                yield Rep(x, False)
+
+    elif isinstance(regex, Alt):
+        for x in traverse(regex.a1):
+            if x == NON_GENERALIZABLE:
+                continue
+            else:
+                exp = True
+                yield Alt(x, regex.a2, False)
+        if exp == False:
+            for x in traverse(regex.a2):
+                if x == NON_GENERALIZABLE:
+                    continue
+                else:
+                    yield Alt(regex.a1, x, False)
+
+    elif isinstance(regex, Seq):
+        i = 0
+        for obj in regex.arr:
+            if exp == False:
+                for x in traverse(obj):
+                    if x == NON_GENERALIZABLE:
+                        continue
+                    else:
+                        exp = True
+                        ay = copy.deepcopy(regex.arr)
+                        ay[i] = x
+                        yield Seq(ay)
+            i += 1
+
+    elif isinstance(regex, One):
+        if regex.next_gen == 0:
+            yield NON_GENERALIZABLE
+        elif regex.next_gen == 1:
+            for a in gen_rep(regex.o):
+                yield a
+            regex.next_gen = 0
+        elif regex.next_gen == 2:
+            for a in gen_alt(regex.o):
+                yield a
+            regex.next_gen = 0
+
+# This helper function is here only to help print the regex heirarchy.
+def get_dict(regex):
+    suffix = str(random.randint(1, 999))
+    if isinstance(regex, Rep):
+        return {"Rep": get_dict(regex.a)}
+    elif isinstance(regex, Alt):
+        return {"Alt": [get_dict(regex.a1) ,get_dict(regex.a2)]}
+    elif isinstance(regex, Seq):
+        #return {"Seq": get_dict(regex.arr[0]), get_dict(regex.arr[0])}
+        return {"Seq": [get_dict(obj) for obj in regex.arr]}
+    elif isinstance(regex, One):
+        #return {"One": regex.o + str(regex.next_gen)}
+        regex.o.insert(0, str(regex.extra))
+        print(regex.o)
+        return {"One": regex.o}
+    else:
+        return "Nothing to return!"
 
 
 def phase_1(alpha_in):
@@ -160,29 +254,52 @@ def phase_1(alpha_in):
     # T[alpha] and generates candiates based on decompositions of alpha
     # i.e. an expression of alpha as alpha = a_1, a_2, ..a_k
 
-    for regex in gen_rep(alpha_in):
-        all_true = False
-        for expr in to_strings(regex):
-            if regex_map.get(regex, False):
-                v = check.check(expr, regex)
-                regex_map[regex] = v
-                if not v: # this regex failed
-                    #print('X', regex)
+    # Each iteration of the while loop corresponds to one generalization step.
+    # Code below follows Algorithm 1, page 3 in the paper.
+
+    done = False
+    curr_reg = One(alpha_in, 1)
+
+    while done == False:
+        next_step = False
+        started = False
+        # The traverse function supplies candidates, and is equivalent to the function "ConstructCandidates()" in the paper.
+        for regex in traverse(curr_reg):
+            started = True
+            if regex == -1:
+                done = True
+                break
+            elif next_step == True:
+                break
+            print('Current Regex: ', str(regex))
+            print('Current regex_map: ' + str(regex_map))
+            all_true = False
+            print('Number of exprs: ', len(list(to_strings(regex))))
+            print('Exprs: ', list(to_strings(regex)))
+
+            # to_strings() function is equivlalent to the function ConstructChecks() in the paper.
+            for expr in to_strings(regex):
+                if str(regex) in regex_map:
+                    print('Regex tested already.')
                     all_true = False
-                    break # one sample of regex failed. Exit
-            elif regex not in regex_map:
-                v = check.check(expr, regex)
-                regex_map[regex] = v
-                if not v: # this regex failed.
-                    #print('X', regex)
-                    all_true = False
-                    break # one sample of regex failed. Exit
-            all_true = True
-        if all_true: # get the first regex that covers all samples.
-            #print("nt:", nt, 'rule:', str(regex))
-            return regex
+                    break # Do not consider previous regexes as candidates. Exit
+                elif str(regex) not in regex_map:
+                    v = check.check(expr, regex)
+                    if not v: # this regex failed.
+                        all_true = False
+                        regex_map[str(regex)] = all_true
+                        break # one sample of regex failed. Exit
+                all_true = True
+            if all_true: # get the first regex that covers all samples.
+                regex_map[str(regex)] = all_true
+                curr_reg = regex
+                next_step = True
+
+        if started == False:
+            break
+
     #raise Exception() # this should never happen. At least one -- the original --  should succeed
-    return None
+    return curr_reg
 
     for k in regex_map:
         if regex_map[k]:
@@ -303,10 +420,32 @@ def phase_3(cfg, start):
             continue
     return cfg
 
-def main(inp):
+def main():
     # phase 1
-    regex = phase_1([i for i in inp])
+    inputs = []
+    regexes = []
+
+    # We read inputs from a file.
+    file1 = open('inputs', 'r')
+    Lines = file1.readlines()
+
+    for input in Lines:
+        inputs.append(input.strip())
+
+    if len(inputs) == 0:
+        print("inputs file is empty! Please provide inputs.")
+        sys.exit()
+    for input in inputs:
+        regexes.append(phase_1([i for i in input]))
+
+    # Combine regexes into one regex as explained in Section 6.1
+    regex = regexes[0]
+    regexes.pop(0)
+    for reg in regexes:
+        regex = Alt(regex, reg, 0)
+
     print(regex)
+
     cfg, start = phase_2(regex)
     print('<start> ::= ', start)
     for k in cfg:
@@ -316,6 +455,7 @@ def main(inp):
     with open('grammar_.json', 'w+') as f:
         json.dump({'[start]': start, '[grammar]': cfg}, indent=4, fp=f)
 
+    print('\nGrammar after Merging:\n')
     merged = phase_3(cfg, start)
     for k in merged:
         print("%s ::= " % k)
@@ -328,4 +468,4 @@ def main(inp):
 if __name__ == '__main__':
     # we assume check is modified to include the
     # necessary oracle
-    main(sys.argv[1])
+    main()
