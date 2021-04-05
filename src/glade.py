@@ -11,7 +11,7 @@ import config
 class Regex:
     def to_rules(self):
         if isinstance(self, Alt):
-            if 9 == self.extra:
+            if self.newly_generalized:
                 for a1 in self.a1.to_rules():
                     yield a1
                 for a2 in self.a2.to_rules():
@@ -21,7 +21,7 @@ class Regex:
                     yield a1
 
         elif  isinstance(self, Rep):
-            if 9 == self.extra:
+            if self.newly_generalized:
                 for a3 in self.a.to_rules():
                     for n in config.SAMPLES_FOR_REP:
                         yield a3 * n
@@ -29,7 +29,6 @@ class Regex:
                 for a3 in self.a.to_rules():
                     yield a3
         elif  isinstance(self, Seq):
-            #print('Current arr: ', str(self.arr))
             for a4 in self.arr[0].to_rules():
                 if self.arr[1:]:
                     for a5 in Seq(self.arr[1:]).to_rules():
@@ -59,25 +58,30 @@ class Regex:
             assert False
 
 class Alt(Regex):
-    def __init__(self, a1, a2, extra): 
-        self.a1 = a1 
+    def __init__(self, a1, a2, extra):
+        self.a1 = a1
         self.a2 = a2
-        self.extra = extra  # extra data used to mark if this object needs to be considered in the next check (if equals to 9) or not (equqls to 0). 
-                            # That is, whether it's a part of the Context or not. See section 4.3
+        self.newly_generalized = extra  # extra data used to mark if this object needs to be considered in the next check (if True) or not (if False).
+                            # That is, whether it's a part of the Context or not. See section 4.3:
+                            # Residual capturing the portion of L tilde that is generalized compared to L hat.
     def __repr__(self): return "(%s|%s)" % (self.a1, self.a2)
 class Rep(Regex):
-    def __init__(self, a, extra): 
+    def __init__(self, a, extra):
         self.a = a
-        self.extra = extra  # See section 4.3
+        self.newly_generalized = extra  # See section 4.3
     def __repr__(self): return "(%s)*" % self.a
 class Seq(Regex):
     def __init__(self, arr): self.arr = arr
     def __repr__(self): return "(%s)" % ' '.join([repr(a) for a in self.arr if a])
 class One(Regex):
-    def __init__(self, o, extra): 
+    def __init__(self, o, extra):
         self.o = o
-        self.extra = extra # Substrings are annotated with extra data to express possible further generalization options.
-                           # 0: for no generalization, 1: for Rep, 2: for Alt.
+        self.next_gen = extra # Substrings are annotated with extra data to express possible further generalization options.
+                              # 0: for no generalization, 1: for Rep, 2: for Alt.
+                              # Section 4.1: These annotations indicate that the
+                              # bracketed substring in the current regular expression can be
+                              # generalized by adding either a repetition (if tau = rep) or an
+                              # alternation (if tau = alt).
     def __repr__(self): return repr(self.o) if self.o else ''
 
 
@@ -94,6 +98,8 @@ class One(Regex):
 # Note that candidate repetitions and candidate alternations can
 # be ordered independently
 # We don't genralize all decendandts in one go, but only one substring at each step. Section 4.1 page 4
+# each generalization step selects a single bracketed substring [\alpha]\tau and generates candidates based on decompositions of \alpha
+
 def gen_alt(alpha):
     length = len(alpha)
     # alpha_1 != e and alpha_2 != e
@@ -101,7 +107,7 @@ def gen_alt(alpha):
         alpha_1, alpha_2 = alpha[:i], alpha[i:]
         assert alpha_1
         assert alpha_2
-        yield Alt(One(alpha_1, 1), One(alpha_2, 2), 9)
+        yield Alt(One(alpha_1, 1), One(alpha_2, 2), True)
     if length: # this is the final choice.
         yield One(alpha, 1)
     return
@@ -117,7 +123,7 @@ def gen_alt(alpha):
 # alpha_1 since alpha_1 is not further generalized. Second, we
 # prioritize longer alpha_2
 # In either case, P alpha Q is ranked last
-# We don't genralize all decendandts in one go, but only one substring at each step. Section 4.1 page 4
+
 def gen_rep(alpha):
     length = len(alpha)
     for i in range(length): # shorter alpha1 prioritized
@@ -127,7 +133,7 @@ def gen_rep(alpha):
             j = length - (k - (i+1))   # j is the inverse of k.
             alpha_2, alpha_3 = alpha[i:j], alpha[j:]
             assert alpha_2
-            yield Seq([One(alpha_1, 0), Rep(One(alpha_2, 2), 9), One(alpha_3, 1)])
+            yield Seq([One(alpha_1, 0), Rep(One(alpha_2, 2), True), One(alpha_3, 1)])
     if length: # the final choice
         yield One(alpha, 0)
     return
@@ -141,11 +147,8 @@ def to_strings(regex):
     each token. Hence, we have to generate a combination of all these strings
     and try to check.
    """
-    print('Starting ... ')
     for rule in regex.to_rules():
         exp_lst_of_lsts = [list(str_db.get(token, [token])) for token in rule]
-        #print('Current rule: ', str(rule))
-        #print('Len of list: ', len(exp_lst_of_lsts))
         for lst in exp_lst_of_lsts: assert lst
         for lst in itertools.product(*exp_lst_of_lsts):
             """
@@ -161,56 +164,40 @@ def to_strings(regex):
 str_db = {}
 regex_map = {}
 regex_dict = dict()
+NON_GENERALIZABLE = -1
 
-def get_candidates(regex):
-    regex1 = copy.deepcopy(regex)
-    return traverse(regex1)
-
-
-def get_checks(l_curr, candidate):
-    return {}
-def check_candidate(s):
-    return True
-
-# The traverse function is the generator of candidates, it's called at each step once, it selects a terminal substring 
+# The traverse function is the generator of candidates, it's called at each step once, it selects a terminal substring
 # and generates all posssible generalization. Each representing a candidate regex.
 
 def traverse(regex):
     exp = False # Used to insure that we don't modify more that one branch in each step.
     if isinstance(regex, Rep):
-        print("It's a Rep")
-        regex.extra = 0
         for x in traverse(regex.a):
-            print("xxxxxxx")
-            if x == -1: # -1 means we reached a leaf that is generizable.
-                print("continue ...")
+            if x == NON_GENERALIZABLE: # -1 means we reached a leaf that not is generalizable.
                 continue
             else:
-                yield Rep(x, 0)
+                yield Rep(x, False)
 
     elif isinstance(regex, Alt):
-        print("It's a Alt")
-        regex.extra = 0
         for x in traverse(regex.a1):
-            if x == -1:
+            if x == NON_GENERALIZABLE:
                 continue
             else:
                 exp = True
-                yield Alt(x, regex.a2, 0)
+                yield Alt(x, regex.a2, False)
         if exp == False:
             for x in traverse(regex.a2):
-                if x == -1:
+                if x == NON_GENERALIZABLE:
                     continue
                 else:
-                    yield Alt(regex.a1, x, 0)
+                    yield Alt(regex.a1, x, False)
 
     elif isinstance(regex, Seq):
-        print("It's a Seq")
         i = 0
         for obj in regex.arr:
             if exp == False:
                 for x in traverse(obj):
-                    if x == -1:
+                    if x == NON_GENERALIZABLE:
                         continue
                     else:
                         exp = True
@@ -220,33 +207,32 @@ def traverse(regex):
             i += 1
 
     elif isinstance(regex, One):
-        print("It's a One")
-        if regex.extra == 0:
-            yield -1
-        elif regex.extra == 1:
+        if regex.next_gen == 0:
+            yield NON_GENERALIZABLE
+        elif regex.next_gen == 1:
             for a in gen_rep(regex.o):
                 yield a
-            regex.extra = 0
-        elif regex.extra == 2:
+            regex.next_gen = 0
+        elif regex.next_gen == 2:
             for a in gen_alt(regex.o):
                 yield a
-            regex.extra = 0
+            regex.next_gen = 0
 
 # This helper function is here only to help print the regex heirarchy.
 def get_dict(regex):
     suffix = str(random.randint(1, 999))
     if isinstance(regex, Rep):
-        return {"Rep"+str(regex.extra): get_dict(regex.a)}
+        return {"Rep": get_dict(regex.a)}
     elif isinstance(regex, Alt):
-        return {"Alt"+str(regex.extra): [get_dict(regex.a1) ,get_dict(regex.a2)]}
+        return {"Alt": [get_dict(regex.a1) ,get_dict(regex.a2)]}
     elif isinstance(regex, Seq):
-        #return {"Seq": get_dict(regex.arr[0]), get_dict(regex.arr[0])} 
-        return {"Seq": [get_dict(obj) for obj in regex.arr]}  	
+        #return {"Seq": get_dict(regex.arr[0]), get_dict(regex.arr[0])}
+        return {"Seq": [get_dict(obj) for obj in regex.arr]}
     elif isinstance(regex, One):
-        #return {"One": regex.o + str(regex.extra)}
+        #return {"One": regex.o + str(regex.next_gen)}
         regex.o.insert(0, str(regex.extra))
         print(regex.o)
-        return {"One": regex.o}       
+        return {"One": regex.o}
     else:
         return "Nothing to return!"
 
@@ -277,51 +263,41 @@ def phase_1(alpha_in):
     while done == False:
         next_step = False
         started = False
-        #regexw = copy.deepcopy(curr_reg)
-        #print(get_dict(regexw))
-        print(" ######## Next Step ########")
         # The traverse function supplies candidates, and is equivalent to the function "ConstructCandidates()" in the paper.
         for regex in traverse(curr_reg):
             started = True
             if regex == -1:
-                print("---- Done ----")
                 done = True
                 break
-            elif next_step == True:               
+            elif next_step == True:
                 break
-            print('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
             print('Current Regex: ', str(regex))
             print('Current regex_map: ' + str(regex_map))
             all_true = False
-            print('Number of exprs: ', len(list(to_strings(regex))))           
+            print('Number of exprs: ', len(list(to_strings(regex))))
             print('Exprs: ', list(to_strings(regex)))
-        
+
             # to_strings() function is equivlalent to the function ConstructChecks() in the paper.
             for expr in to_strings(regex):
-                print('Current expression: ' + expr)
-                
                 if str(regex) in regex_map:
                     print('Regex tested already.')
                     all_true = False
                     break # Do not consider previous regexes as candidates. Exit
                 elif str(regex) not in regex_map:
-                    v = check.check(expr, regex)                    
+                    v = check.check(expr, regex)
                     if not v: # this regex failed.
-                        #print('X', regex)
                         all_true = False
                         regex_map[str(regex)] = all_true
                         break # one sample of regex failed. Exit
                 all_true = True
             if all_true: # get the first regex that covers all samples.
-                #print("nt:", nt, 'rule:', str(regex))
-                print("Accepted Regex.")
                 regex_map[str(regex)] = all_true
                 curr_reg = regex
                 next_step = True
 
         if started == False:
             break
-                
+
     #raise Exception() # this should never happen. At least one -- the original --  should succeed
     return curr_reg
 
@@ -450,11 +426,11 @@ def main():
     regexes = []
 
     # We read inputs from a file.
-    file1 = open('inputs', 'r') 
-    Lines = file1.readlines() 
+    file1 = open('inputs', 'r')
+    Lines = file1.readlines()
 
     for input in Lines:
-        inputs.append(input.strip()) 
+        inputs.append(input.strip())
 
     if len(inputs) == 0:
         print("inputs file is empty! Please provide inputs.")
