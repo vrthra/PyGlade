@@ -126,16 +126,19 @@ def gen_alt(alpha):
 
 def gen_rep(alpha):
     length = len(alpha)
-    for i in range(length): # shorter alpha1 prioritized
-        alpha_1 = alpha[:i]
-        # alpha_2 != e
-        for k in range(i+1, length+1): # longer alpha2 prioritized, see section 4.2
-            j = length - (k - (i+1))   # j is the inverse of k.
-            alpha_2, alpha_3 = alpha[i:j], alpha[j:]
-            assert alpha_2
-            yield Seq([One(alpha_1, 0), Rep(One(alpha_2, 2), True), One(alpha_3, 1)])
-    if length: # the final choice
+    if length < 2: # if alpha is a single char, then return it as is, see Figure 2, Step R8
         yield One(alpha, 0)
+    else:
+        for i in range(length): # shorter alpha1 prioritized
+            alpha_1 = alpha[:i]
+            # alpha_2 != e
+            for k in range(i+1, length+1): # longer alpha2 prioritized, see section 4.2
+                j = length - (k - (i+1))   # j is the inverse of k.
+                alpha_2, alpha_3 = alpha[i:j], alpha[j:]
+                assert alpha_2
+                yield Seq([One(alpha_1, 0), Rep(One(alpha_2, 2), True), One(alpha_3, 1)])
+        if length: # the final choice
+            yield One(alpha, 0)
     return
 
 def to_strings(regex):
@@ -386,7 +389,9 @@ def gen_new_grammar(a, b, key, cfg):
         new_alts = []
         new_g[k] = new_alts
         for rule in cfg[k]:
-            new_rule = [key if token in {a, b} else token for token in rule]
+            new_rule = [key if (token in {a} and k != a) else token for token in rule]
+            # if the current key is not a, replace every token "a" that appears in rule with the new key.
+            # This way we get to expand into the new key from a. See example in Section 5.
             new_alts.append(new_rule)
     rules = (new_g[a] + new_g[b])
     defs = {str(r):r for r in  rules}
@@ -398,6 +403,7 @@ def consider_merging(a, b, key, cfg, start):
     fzz = fuzz.LimitFuzzer(g)
     for i in range(config.P3Check):
         v = fzz.fuzz(start)
+        print('Merging Now, check: ' + v)
         r = check.check(v)
         if not r:
             return None
@@ -408,13 +414,17 @@ def consider_merging(a, b, key, cfg, start):
 # to repetition subexpressions
 def phase_3(cfg, start):
     # first collect all rep
-    repetitions = [k for k in cfg if k.endswith('_rep>')]
+    merged_pairs = []
+    repetitions = [k for k in cfg if k.endswith('>')]
     for i,(a,b) in enumerate(itertools.product(repetitions, repeat=2)):
-        if a == b: continue
+        if a == b or (b,a) in merged_pairs : continue
+        #if a == b: continue
         c = to_key([i], '_')
+        print('Trying to merge:', a, b, " => ", c)
         res = consider_merging(a,b, c, cfg, start)
         if res:
             print('Merged:', a, b, " => ", c)
+            merged_pairs.append((a,b))
             cfg = res
         else:
             continue
