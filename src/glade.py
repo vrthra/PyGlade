@@ -9,6 +9,7 @@ import fuzz
 import config
 import pprint
 
+program = ""
 class Regex:
     def to_rules(self):
         if isinstance(self, Alt):
@@ -156,7 +157,14 @@ def gen_rep(alpha):
                 j = length - (k - (i+1))   # j is the inverse of k.
                 alpha_2, alpha_3 = alpha[i:j], alpha[j:]
                 assert alpha_2
-                yield Seq([One([alpha_1], 0), Rep(One([alpha_2], 2), True), One([alpha_3], 1)])
+                if i == 0 and j == length:
+                    yield Rep(One([alpha_2], 2), True)
+                elif i != 0 and j != length:
+                    yield Seq([One([alpha_1], 0), Rep(One([alpha_2], 2), True), One([alpha_3], 1)])
+                elif i == 0 and j != length:
+                    yield Seq([Rep(One([alpha_2], 2), True), One([alpha_3], 1)])
+                elif i != 0 and j == length:
+                    yield Seq([One([alpha_1], 0), Rep(One([alpha_2], 2), True)])
         if length: # the final choice
             yield One([alpha], 0)
     return
@@ -206,19 +214,27 @@ def gen_char(regex):
     elif isinstance(regex, One):
         global roll_back
         if roll_back == True and regex.curr_char_gen == True:
-            # We remove last added char from the list of alternatives.
+            # We remove the last added char from the list of alternatives.
             del regex.o[-1]
             roll_back = False
             return regex
-        if regex.generalized == 127:
+        if regex.generalized > 126:
             # All chars have been tried, we mark current unit as non-generalizable.
             regex.curr_char_gen = False
             return NON_GENERALIZABLE
         else:
-            # Hier we perform a generalization step.
+            # Here we perform a generalization step.
             regex.curr_char_gen = True
             curr_char = all_chars[regex.generalized]
-            if curr_char != regex.o[0]: regex.o.append(curr_char)         
+            if curr_char != regex.o[0]: 
+                regex.o.append(curr_char)
+            elif regex.generalized < 127: # Try the next char in the list
+                regex.generalized += 1
+                curr_char = all_chars[regex.generalized]
+                regex.o.append(curr_char)
+            elif regex.generalized == 127: # All chars have been tried
+                regex.curr_char_gen = False
+                return NON_GENERALIZABLE
             regex.generalized += 1
             return regex
 
@@ -268,6 +284,7 @@ def char_gen_phase(regex):
     # in the regex to every (different) terminal in Sigma.
     # Section 6.2 Page 8. 
     global roll_back
+    global program
     x = 0
     while True:
         # At each iteration, we first save the current regex before working on the regex.
@@ -291,7 +308,7 @@ def char_gen_phase(regex):
 
 def to_strings(regex):
     """
-    We are given the toekn, and the regex that is being checked to see if it
+    We are given the token, and the regex that is being checked to see if it
     is the correct abstraction. Hence, we first generate all possible rules
     that can result from this regex.
     The complication is that str_db contains multiple alternative strings for
@@ -309,7 +326,6 @@ def to_strings(regex):
             with the expanded string.
             """
             expansion = ''.join(lst)
-            #print("Expansion %s:\tregex:%s" % (repr(expansion), str(regex)))
             yield expansion
 
 str_db = {}
@@ -317,8 +333,8 @@ regex_map = {}
 regex_dict = dict()
 NON_GENERALIZABLE = -1
 
-# The get_candidates function is the generator of candidates, it's called at each step once, it selects a terminal substring
-# and generates all posssible generalization. Each representing a candidate regex.
+# The get_candidates function is the generator of candidates. It's called at each step once, it selects a terminal substring
+# then generates all posssible generalization for that substring. Each representing a candidate regex.
 
 def get_candidates(regex):
     exp = False # Used to insure that we don't modify more that one branch in each step.
@@ -377,12 +393,9 @@ def get_dict(regex):
     elif isinstance(regex, Alt):
         return {"Alt": [get_dict(regex.a1) ,get_dict(regex.a2), regex.newly_generalized]}
     elif isinstance(regex, Seq):
-        #return {"Seq": get_dict(regex.arr[0]), get_dict(regex.arr[0])}
         return {"Seq": [get_dict(obj) for obj in regex.arr]}
     elif isinstance(regex, One):
-        #return {"One": regex.o + str(regex.next_gen)}
         regex.o.insert(0, str(regex.next_gen))
-        #print(regex.o)
         return {"One": regex.o}
     else:
         return "Nothing to return!"
@@ -410,7 +423,7 @@ def phase_1(alpha_in):
 
     done = False
     curr_reg = One([alpha_in], 1)
-
+    global program
     while done == False:
         next_step = False
         started = False
@@ -448,12 +461,9 @@ def phase_1(alpha_in):
         if started == False:
             break
 
-    x = atomize(curr_reg)
-
-    curr_reg = char_gen_phase(curr_reg)
-
-    #raise Exception() # this should never happen. At least one -- the original --  should succeed
-    return curr_reg
+    atomized_reg = atomize(curr_reg)
+    final_reg = char_gen_phase(atomized_reg)
+    return final_reg
 
 
 def to_key(prefix, suffix=''):
@@ -552,6 +562,7 @@ def gen_new_grammar(a, b, key, cfg):
     return new_g
 
 def consider_merging(a, b, key, cfg, start):
+    global program
     g = gen_new_grammar(a, b, key, cfg)
     fzz = fuzz.LimitFuzzer(g)
     for i in range(config.P3Check):
@@ -567,13 +578,13 @@ def consider_merging(a, b, key, cfg, start):
 def phase_3(cfg, start):
     # first collect all rep
     merged_pairs = []
-    repetitions = [k for k in cfg if k.endswith('>')]
+    repetitions = [k for k in cfg if k.endswith('_rep>')]
     for i,(a,b) in enumerate(itertools.product(repetitions, repeat=2)):
-        if a == b or (b,a) in merged_pairs : continue
+        if (a == b) or (b,a) in merged_pairs : continue
         c = to_key([i], '_')
         res = consider_merging(a,b, c, cfg, start)
         if res:
-            print('Merged:', a, b, " => ", c)
+            #print('Merged:', a, b, " => ", c)
             merged_pairs.append((a,b))
             cfg = res
         else:
@@ -597,14 +608,15 @@ def main():
         sys.exit()
     for input in inputs:
         regexes.append(phase_1([i for i in input]))
-
+        print("One regex done")
+    print("\n+++++ Phase 1 Done +++++\n")
     # Combine regexes into one regex as explained in Section 6.1
     regex = regexes[0]
     regexes.pop(0)
     for reg in regexes:
         regex = Alt(regex, reg, False)
 
-    print(regex)
+    print("Final regex: " + str(regex))
 
     cfg, start = phase_2(regex)
     print('<start> ::= ', start)
@@ -613,17 +625,18 @@ def main():
         for alt in cfg[k]:
             print("   | " + ' '.join(alt))
     with open('grammar_.json', 'w+') as f:
-        json.dump({'[start]': start, '[grammar]': cfg}, indent=4, fp=f)
+        json.dump({'<start>': [[start]], **cfg}, indent=4, fp=f)
 
-    print('\nGrammar after Merging:\n')
+    print('\n+++++ Merging Phase Begins +++++\n')
     merged = phase_3(cfg, start)
     for k in merged:
         print("%s ::= " % k)
         for alt in merged[k]:
             print("   | " + ' '.join(alt))
 
+    # Save the final grammar in the fuzzing book format
     with open('grammar.json', 'w+') as f:
-        json.dump({'[start]': start, '[grammar]': merged}, indent=4, fp=f)
+        json.dump({'<start>': [[start]], **merged}, indent=4, fp=f)
 
 if __name__ == '__main__':
     # we assume check is modified to include the
