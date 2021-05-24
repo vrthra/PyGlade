@@ -50,7 +50,6 @@ class LimitFuzzer(Fuzzer):
         COST = self.compute_cost(grammar)
         self.cost = COST
 
-
     def compute_cost(self, grammar):
         cost = {}
         for k in grammar:
