@@ -55,7 +55,10 @@ class LimitFuzzer(Fuzzer):
         for k in grammar:
             cost[k] = {}
             for rule in grammar[k]:
-                cost[k][str(rule)] = self.expansion_cost(grammar, rule, set())
+                try:
+                    cost[k][str(rule)] = self.expansion_cost(grammar, rule, set())
+                except Exception as e:
+                    cost[k][str(rule)] = float('inf')
         return cost
 
 import json
@@ -63,12 +66,13 @@ import check
 def main(fn):
     with open(fn) as f:
         mgrammar = json.load(fp=f)
-    fuzzer = LimitFuzzer(mgrammar['[grammar]'])
+    fuzzer = LimitFuzzer(mgrammar)
     correct = 0
     total = config.FuzzVerify
     for i in range(total):
-        val = fuzzer.fuzz(mgrammar['[start]'])
+        val = fuzzer.fuzz(mgrammar['<start>'][0][0])
         if val:
+            print("Value: " + val)
             correct += 1
     print('Fuzz:', correct, '/', total)
 
