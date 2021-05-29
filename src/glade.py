@@ -275,6 +275,46 @@ def atomize(regex):
             return Seq(arr)
         return One(regex_orig.o[0], 0)
 
+def deatomize(regex):
+    # The reverse function of atomize(): Given a sequence of One objects.
+    # we transform it into a single One object.
+
+    if isinstance(regex, Rep):
+        regex.a = deatomize(regex.a)
+        return regex
+
+    elif isinstance(regex, Alt):
+        regex.a1 = deatomize(regex.a1)
+        regex.a2 = deatomize(regex.a2)
+        return regex
+
+    elif isinstance(regex, Seq):
+        standard_string = True 
+        string = ""
+        for obj in regex.arr:
+            if isinstance(obj, One):
+                if len(obj.o) > 1:
+                    standard_string = False   
+                    break 
+                else:
+                    string += obj.o[0]
+            else:
+                standard_string = False   
+                break 
+
+        if standard_string:
+            return One([string], 0)
+        else:
+            i = 0
+            for obj in regex.arr:           
+                obj = deatomize(obj)
+                regex.arr[i] = obj
+                i += 1
+            return regex
+
+    elif isinstance(regex, One):
+        return regex
+
 roll_back = False # Roll back last character generalization step. 
 
 def char_gen_phase(regex):
@@ -297,6 +337,7 @@ def char_gen_phase(regex):
         else:
             exprs = list(to_strings(regex))
             for expr in exprs:
+
                 v = check.check(expr, regex)
                 if not v: # this regex failed.
                     roll_back = True
@@ -463,7 +504,8 @@ def phase_1(alpha_in):
 
     atomized_reg = atomize(curr_reg)
     final_reg = char_gen_phase(atomized_reg)
-    return final_reg
+    deatomized_reg = deatomize(final_reg)
+    return deatomized_reg
 
 
 def to_key(prefix, suffix=''):
@@ -513,7 +555,7 @@ def extract_alt(regex, prefix):
 
 def extract_one(regex, prefix):
     if len(regex.o) == 1: # one is not a non terminal
-        return {}, ''.join(regex.o)
+        return {}, ''.join(regex.o[0])
     else: # Regex One is a non terminal, meaning it has been generalized to a list of n chars. Therefore we treat it as an Alt object with n alternatives. See example in section 6.2
         i = 0
         alts = []
@@ -546,26 +588,56 @@ def extract_grammar(regex, prefix):
     assert False
 
 def gen_new_grammar(a, b, key, cfg):
+    included = False # True if a or b was previously merged with other non-terminal.
+    test = True # False if (a,b) have already been merged indirectly, via transitivity.
+    for k in cfg:
+        if k.endswith('_>'):
+            for rule in cfg[k]:
+                if rule[0] == a:
+                    if [b] not in cfg[k]:
+                        cfg[k].append([b])
+                    else:
+                        test = False
+                    included = True
+                    break
+                elif rule[0] == b:
+                    if [a] not in cfg[k]:
+                        cfg[k].append([a])
+                    else:
+                        test = False
+                    included = True
+                    break
+        if included == True:
+            key = k
+            if test == False: 
+                return cfg, key, test
+            break
+
     # replace all instances of a and b with key
     new_g = {}
     for k in cfg:
         new_alts = []
         new_g[k] = new_alts
         for rule in cfg[k]:
-            new_rule = [key if (token in {a} and k != a) else token for token in rule]
-            # if the current key is not a, replace every token "a" that appears in rule with the new key.
-            # This way we get to expand into the new key from a. See example in Section 5.
+            new_rule = [key if (token in {a, b} and k != token and not k.endswith('_>')) else token for token in rule]
+            # if the current token is a or b, and is not the current key, then replace that token with the new key.
+            # This way we equate the non-terminals a and b. See example in Section 5.
             new_alts.append(new_rule)
-    rules = ([[a]] + new_g[b])  # Make grammar compact.
-    defs = {str(r):r for r in  rules}
-    new_g[key] = [defs[l] for l in defs]
-    return new_g
+
+
+
+    if included == False:
+        rules = ([[a]] + [[b]])  # Make grammar compact.
+        defs = {str(r):r for r in  rules}
+        new_g[key] = [defs[l] for l in defs]
+    return new_g, key, test
 
 def consider_merging(a, b, key, cfg, start):
     global program
-    g = gen_new_grammar(a, b, key, cfg)
-    fzz = fuzz.LimitFuzzer(g)
-    for i in range(config.P3Check):
+    g, key, test = gen_new_grammar(a, b, key, cfg)
+    if test == False: return False
+    fzz = fuzz.CheckFuzzer(g, key, a, b)
+    for i in range(2):
         v = fzz.fuzz(start)
         r = check.check(v)
         if not r:
@@ -576,17 +648,15 @@ def consider_merging(a, b, key, cfg, start):
 # The keys are unordered pairs of repetition keys A'_i, A'_j which corresponds
 # to repetition subexpressions
 def phase_3(cfg, start):
-    # first collect all rep
-    merged_pairs = []
+    # first collect all reps
     repetitions = [k for k in cfg if k.endswith('_rep>')]
-    for i,(a,b) in enumerate(itertools.product(repetitions, repeat=2)):
-        if (a == b) or (b,a) in merged_pairs : continue
+    i = 0
+    for (a,b) in itertools.combinations(repetitions, 2):
         c = to_key([i], '_')
         res = consider_merging(a,b, c, cfg, start)
         if res:
-            #print('Merged:', a, b, " => ", c)
-            merged_pairs.append((a,b))
             cfg = res
+            i += 1
         else:
             continue
     return cfg
@@ -619,7 +689,7 @@ def main():
     print("Final regex: " + str(regex))
 
     cfg, start = phase_2(regex)
-    print('<start> ::= ', start)
+    print('\n<start> ::= ', start)
     for k in cfg:
         print("%s ::= " % k)
         for alt in cfg[k]:
@@ -629,6 +699,7 @@ def main():
 
     print('\n+++++ Merging Phase Begins +++++\n')
     merged = phase_3(cfg, start)
+    print('\n<start> ::= ', start)
     for k in merged:
         print("%s ::= " % k)
         for alt in merged[k]:
