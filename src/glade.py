@@ -8,6 +8,7 @@ import check
 import fuzz
 import config
 import pprint
+import time
 
 program = ""
 class Regex:
@@ -19,12 +20,13 @@ class Regex:
                 for a2 in self.a2.to_rules():
                     yield a2
                 self.newly_generalized = False
-            elif self.a1_gen:  # Expand the first alternative if it or one of it's descendants were newly generalized.  
+            elif self.a1_gen or newly_generalized_descendant(self.a1):  # Expand the first alternative if it, or one of it's descendants were newly generalized.  
                 for a1 in self.a1.to_rules():
                     yield a1
-            elif self.a2_gen:  # Expand the second alternative if it or one of it's descendants were newly generalized.  
+            elif self.a2_gen or newly_generalized_descendant(self.a2):  # Expand the second alternative if it, or one of it's descendants were newly generalized. 
                 for a2 in self.a2.to_rules():
                     yield a2
+
             else:  # Else it's part of the context. We don't enumerate all rules, but pick randomely only one of the two component.
                 x = random.choice([True, False])
                 if x:
@@ -39,9 +41,11 @@ class Regex:
                 for a3 in self.a.to_rules():
                     for n in config.SAMPLES_FOR_REP:
                         yield a3 * n
+                self.newly_generalized = False
             else:  # It's part of the context, ignore rule.
                 for a3 in self.a.to_rules():
                     yield a3
+
         elif  isinstance(self, Seq):
             for a4 in self.arr[0].to_rules():
                 if self.arr[1:]:
@@ -71,6 +75,8 @@ class Regex:
                 return "(%s)" % '|'.join(str(o).replace('*', '[*]').replace('(', '[(]').replace(')', '[)]') for o in self.o)
             else:
                 return ''.join(str(o).replace('*', '[*]').replace('(', '[(]').replace(')', '[)]') for o in self.o)
+        elif  isinstance(self, Alts):
+            return "(%s)" % ' | '.join(str(a) for a in self.arr)
         else:
             assert False
 
@@ -92,6 +98,9 @@ class Rep(Regex):
 class Seq(Regex):
     def __init__(self, arr): self.arr = arr
     def __repr__(self): return "(%s)" % ' '.join([repr(a) for a in self.arr if a])
+class Alts(Regex):
+    def __init__(self, arr): self.arr = arr
+    def __repr__(self): return "(%s)" % ' | '.join([repr(a) for a in self.arr if a])
 class One(Regex):
     def __init__(self, o, extra, generalized=0, curr_char_gen=False):
         self.o = o # A list containing the original character and all possible character replacements.
@@ -118,7 +127,7 @@ class One(Regex):
 # In either case, P alpha Q is ranked last
 # Note that candidate repetitions and candidate alternations can
 # be ordered independently
-# We don't genralize all decendandts in one go, but only one substring at each step. Section 4.1 page 4
+# We don't genralize all descendants in one go, but only one substring at each step. Section 4.1 page 4
 # each generalization step selects a single bracketed substring [\alpha]\tau and generates candidates based on decompositions of \alpha
 
 def gen_alt(alpha):
@@ -275,42 +284,55 @@ def atomize(regex):
             return Seq(arr)
         return One(regex_orig.o[0], 0)
 
-def deatomize(regex):
-    # The reverse function of atomize(): Given a sequence of One objects.
-    # we transform it into a single One object.
+def newly_generalized_descendant(regex):
+    # Check if one of regex children nodes or descendants has been newly generalized
+    # The function is useful when constructing checks.
+    
+    if isinstance(regex, Rep):
+        if regex.newly_generalized: return True 
+        else: return newly_generalized_descendant(regex.a)
+
+    elif isinstance(regex, Alt):
+        if regex.newly_generalized: return True
+        elif newly_generalized_descendant(regex.a1) or newly_generalized_descendant(regex.a2): return True
+        else: return False
+
+    elif isinstance(regex, Seq):
+        i = 0
+        for obj in regex.arr:           
+            if newly_generalized_descendant(obj): return True
+        return False
+
+    elif isinstance(regex, One):
+        return False
+
+def compact(regex):
+    # To make regex more compact and reduce depth: Given nested Alt objects.
+    # we transform it into a single Alts object.
 
     if isinstance(regex, Rep):
-        regex.a = deatomize(regex.a)
+        regex.a = compact(regex.a)
         return regex
 
     elif isinstance(regex, Alt):
-        regex.a1 = deatomize(regex.a1)
-        regex.a2 = deatomize(regex.a2)
-        return regex
+        e1 = compact(regex.a1)
+        e2 = compact(regex.a2)
+        if not isinstance(e1, Alts) and not isinstance(e2, Alts):
+            return Alts([e1, e2])
+        elif isinstance(e1, Alts) and not isinstance(e2, Alts):
+            return Alts(e1.arr +[e2])
+        elif not isinstance(e1, Alts) and isinstance(e2, Alts):
+            return Alts([e1] +e2.arr)
+        else:
+            return Alts(e2.arr + e2.arr)
 
     elif isinstance(regex, Seq):
-        standard_string = True 
-        string = ""
-        for obj in regex.arr:
-            if isinstance(obj, One):
-                if len(obj.o) > 1:
-                    standard_string = False   
-                    break 
-                else:
-                    string += obj.o[0]
-            else:
-                standard_string = False   
-                break 
-
-        if standard_string:
-            return One([string], 0)
-        else:
-            i = 0
-            for obj in regex.arr:           
-                obj = deatomize(obj)
-                regex.arr[i] = obj
-                i += 1
-            return regex
+        i = 0
+        for obj in regex.arr:           
+            obj = compact(obj)
+            regex.arr[i] = obj
+            i += 1
+        return regex
 
     elif isinstance(regex, One):
         return regex
@@ -430,7 +452,7 @@ def get_candidates(regex):
 def get_dict(regex):
     suffix = str(random.randint(1, 999))
     if isinstance(regex, Rep):
-        return {"Rep": get_dict(regex.a)}
+        return {"Rep": [get_dict(regex.a), regex.newly_generalized]}
     elif isinstance(regex, Alt):
         return {"Alt": [get_dict(regex.a1) ,get_dict(regex.a2), regex.newly_generalized]}
     elif isinstance(regex, Seq):
@@ -470,7 +492,6 @@ def phase_1(alpha_in):
         started = False
         # The get_candidates function supplies candidates, and is equivalent to the function "ConstructCandidates()" in the paper.
         for regex in get_candidates(curr_reg):
-
             started = True
             if regex == NON_GENERALIZABLE:
                 # No more generalizations are possible. We are done with Phase 1.
@@ -482,6 +503,7 @@ def phase_1(alpha_in):
             all_true = False
 
             # to_strings() function is equivlalent to the function ConstructChecks() in the paper.
+            
             exprs = list(to_strings(regex))
             for expr in exprs:
                 if str(regex) in regex_map:
@@ -504,8 +526,8 @@ def phase_1(alpha_in):
 
     atomized_reg = atomize(curr_reg)
     final_reg = char_gen_phase(atomized_reg)
-    deatomized_reg = deatomize(final_reg)
-    return deatomized_reg
+    compact_reg = compact(final_reg)
+    return compact_reg
 
 
 def to_key(prefix, suffix=''):
@@ -537,6 +559,18 @@ def extract_seq(regex, prefix):
         g.update(g_)
         rule.append(k)
     g[to_key(prefix)] = [rule]
+    return g, to_key(prefix)
+
+def extract_alts(regex, prefix):
+    # a1, a2
+    g = {}
+    rules = []
+    for i,item in enumerate(regex.arr):
+        g_, k = extract_grammar(item, prefix + [i])
+        g.update(g_)
+        rules.append([k])
+
+    g[to_key(prefix)] = rules
     return g, to_key(prefix)
 
 def extract_rep(regex, prefix):
@@ -585,6 +619,8 @@ def extract_grammar(regex, prefix):
         return extract_seq(regex, prefix)
     elif isinstance(regex, One):
         return extract_one(regex, prefix)
+    elif isinstance(regex, Alts):
+        return extract_alts(regex, prefix)
     assert False
 
 def gen_new_grammar(a, b, key, cfg):
@@ -639,7 +675,7 @@ def consider_merging(a, b, key, cfg, start):
     fzz = fuzz.CheckFuzzer(g, key, a, b)
     for i in range(2):
         v = fzz.fuzz(start)
-        r = check.check(v)
+        r = check.check(v, program)
         if not r:
             return None
     return g
