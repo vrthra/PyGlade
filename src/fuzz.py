@@ -3,6 +3,7 @@
 import random
 import config
 import pprint
+import copy
 # +
 class Fuzzer:
     def __init__(self, grammar):
@@ -23,7 +24,7 @@ class CheckFuzzer(Fuzzer):
         if symbol in seen:
             self.key_cost[symbol] = float('inf')
             return float('inf')
-        if symbol == self.new_key:
+        if symbol == self.key:
             v = -1
         else:
             v = min((self.expansion_cost(grammar, rule, seen | {symbol})
@@ -40,23 +41,14 @@ class CheckFuzzer(Fuzzer):
 
     def gen_key(self, key, depth, max_depth):
         if key not in self.grammar: return key
-        if key == self.new_key:
-            rules = [self.grammar[key][self.alt]]
-            self.alt = -1
 
-        elif key == self.a_key:
-            if self.a_check == 2:
+        elif key == self.key:
+            if self.check == 2:
+                # 2 repetitions have been generated. Stop there.
                 rules = [self.grammar[key][1]]
             else:
                 rules = [self.grammar[key][0]]
-                self.a_check += 1
-
-        elif key == self.b_key:
-            if self.b_check == 2:
-                rules = [self.grammar[key][1]]
-            else:
-                rules = [self.grammar[key][0]]
-                self.b_check += 1
+                self.check += 1
 
         else:
             pathl = [(key, rule) for rule in self.grammar[key] if self.cost[key][str(rule)] == -1]
@@ -68,12 +60,16 @@ class CheckFuzzer(Fuzzer):
 
         chosen_rule = random.choice(rules)
         current_expansion = key + ''.join(chosen_rule)
-        if key.endswith('_rep>') and key != self.a_key and key != self.b_key and current_expansion in self.past_expansions: 
-            if clst[0][0] == -1:
+        if key.endswith('_rep>') and key != self.key and current_expansion in self.past_expansions: 
+            if clst[0][0] == -1 and len(clst) > 1:
+                # Take the second cheapest path to avoid potential infinite loops.
                 rules = [r for c,r in clst if c == clst[1][0]]
                 chosen_rule = random.choice(rules)
-                current_expansion = key + ''.join(chosen_rule)
-
+  
+        # The following to ensure that the traget non-terminal rule is set back to the original rule with rep of 1.
+        chosen_rule = [self.ini_token if key != self.key and token == self.key and self.check == 2 else token for token in chosen_rule]
+        current_expansion = key + ''.join(chosen_rule)
+ 
         self.past_expansions.add(current_expansion)
         return self.gen_rule(chosen_rule, depth+1, max_depth)
 
@@ -84,25 +80,27 @@ class CheckFuzzer(Fuzzer):
         self.past_expansions = set()
         return self.gen_key(key=key, depth=0, max_depth=max_depth)
 
-    def alt_pos(self):
-        x = self.grammar[self.new_key].index([self.a_key])
-        if x != (len(self.grammar[self.new_key]) - 1): return x
-        else: return self.grammar[self.new_key].index([self.b_key])
+    def reduce_reps(self, grammar):
+        # Set all repetitions to 1 repetition. Except for the traget non-terminal.
+        new_g = copy.deepcopy(grammar)
+        for k in new_g:
+            if k.endswith('rep>') and k != self.key:
+                new_g[k] = [[new_g[k][0][1]]]
+        return new_g
 
-    def __init__(self, grammar, new_key, a_key, b_key):
+    def __init__(self, grammar, key, ini_token):
         global COST
-        super().__init__(grammar)
-        self.new_key = new_key
-        self.a_key = a_key
-        self.b_key = b_key
-        self.a_check = 0
-        self.b_check = 0
+        self.key = key
+        self.ini_token = ini_token
+        ng = self.reduce_reps(grammar)
+        super().__init__(ng)
+        self.check = 0
         self.past_expansions = set()
-        self.alt = self.alt_pos() # First alternative index to try.
+        self.alt = 0 # First alternative index to try.
         self.key_cost = {}
-        COST = self.compute_cost(grammar)
+        COST = self.compute_cost(ng)
         self.cost = COST
-        self.normal_cost = LimitFuzzer(grammar).cost
+        self.normal_cost = LimitFuzzer(ng).cost
 
     def compute_cost(self, grammar):
         cost = {}
