@@ -10,7 +10,9 @@ import config
 import pprint
 import time
 
-program = ""
+
+checks = 0
+unmerged_grammar = {}
 class Regex:
     def to_rules(self):
         if isinstance(self, Alt):
@@ -306,6 +308,34 @@ def newly_generalized_descendant(regex):
     elif isinstance(regex, One):
         return False
 
+def del_double_rep(regex):
+    # To make regex more compact and reduce depth: Given nested Alt objects.
+    # we transform it into a single Alts object.
+
+    if isinstance(regex, Rep):
+        if isinstance(regex.a, Rep):
+            regex = regex.a
+            return del_double_rep(regex)
+        else:
+            child = del_double_rep(regex.a)
+            return Rep(child, regex.newly_generalized)
+
+    elif isinstance(regex, Alt):
+        regex.a1 = del_double_rep(regex.a1)
+        regex.a2 = del_double_rep(regex.a2)
+        return regex
+
+    elif isinstance(regex, Seq):
+        i = 0
+        for obj in regex.arr:           
+            obj = del_double_rep(obj)
+            regex.arr[i] = obj
+            i += 1
+        return regex
+
+    elif isinstance(regex, One):
+        return regex
+
 def compact(regex):
     # To make regex more compact and reduce depth: Given nested Alt objects.
     # we transform it into a single Alts object.
@@ -346,7 +376,7 @@ def char_gen_phase(regex):
     # in the regex to every (different) terminal in Sigma.
     # Section 6.2 Page 8. 
     global roll_back
-    global program
+    global checks
     x = 0
     while True:
         # At each iteration, we first save the current regex before working on the regex.
@@ -359,7 +389,7 @@ def char_gen_phase(regex):
         else:
             exprs = list(to_strings(regex))
             for expr in exprs:
-
+                checks += 1
                 v = check.check(expr, regex)
                 if not v: # this regex failed.
                     roll_back = True
@@ -393,6 +423,7 @@ def to_strings(regex):
 
 str_db = {}
 regex_map = {}
+valid_regexes = set()
 regex_dict = dict()
 NON_GENERALIZABLE = -1
 
@@ -486,7 +517,7 @@ def phase_1(alpha_in):
 
     done = False
     curr_reg = One([alpha_in], 1)
-    global program
+    global checks
     while done == False:
         next_step = False
         started = False
@@ -501,15 +532,22 @@ def phase_1(alpha_in):
                 # We go to the next generalization step.
                 break
             all_true = False
-
+            regex = del_double_rep(regex)
             # to_strings() function is equivlalent to the function ConstructChecks() in the paper.
             
             exprs = list(to_strings(regex))
+
+            ay = copy.deepcopy(regex)
+            ay = del_double_rep(ay)
+            var = str(get_dict(ay))
+            if var in valid_regexes: 
+                continue
             for expr in exprs:
                 if str(regex) in regex_map:
-                    all_true = False
+                    all_true = regex_map[str(regex)]
                     break # Do not consider previous regexes as candidates. Exit
                 elif str(regex) not in regex_map:
+                    checks += 1
                     v = check.check(expr, regex)
                     if not v: # this regex failed.
                         all_true = False
@@ -518,6 +556,9 @@ def phase_1(alpha_in):
                 all_true = True
             if all_true: # get the first regex that covers all samples.
                 regex_map[str(regex)] = all_true
+                ayy = copy.deepcopy(regex)
+                var = str(get_dict(ayy))
+                valid_regexes.add(var)
                 curr_reg = regex
                 next_step = True
 
@@ -528,7 +569,6 @@ def phase_1(alpha_in):
     final_reg = char_gen_phase(atomized_reg)
     compact_reg = compact(final_reg)
     return compact_reg
-
 
 def to_key(prefix, suffix=''):
     return '<k%s%s>'  % (''.join([str(s) for s in prefix]), suffix)
@@ -623,9 +663,19 @@ def extract_grammar(regex, prefix):
         return extract_alts(regex, prefix)
     assert False
 
-def gen_new_grammar(a, b, key, cfg):
+
+def change_nonterminal(a, b, cfg):
+    # Function to overwrite the first rule of rep a, with the first rule of rep b. This needs to be done as part of the Check construction of Merging phase.
+    new_g = copy.deepcopy(cfg)
+   
+    new_g[a][0][1] = new_g[b][0][1]
+    return new_g
+
+def gen_new_grammar(a, b, key, cfgx):
     included = False # True if a or b was previously merged with other non-terminal.
     test = True # False if (a,b) have already been merged indirectly, via transitivity.
+
+    cfg = copy.deepcopy(cfgx)
     for k in cfg:
         if k.endswith('_>'):
             for rule in cfg[k]:
@@ -660,8 +710,6 @@ def gen_new_grammar(a, b, key, cfg):
             # This way we equate the non-terminals a and b. See example in Section 5.
             new_alts.append(new_rule)
 
-
-
     if included == False:
         rules = ([[a]] + [[b]])  # Make grammar compact.
         defs = {str(r):r for r in  rules}
@@ -669,21 +717,29 @@ def gen_new_grammar(a, b, key, cfg):
     return new_g, key, test
 
 def consider_merging(a, b, key, cfg, start):
-    global program
+    global unmerged_grammar
     g, key, test = gen_new_grammar(a, b, key, cfg)
     if test == False: return False
-    fzz = fuzz.CheckFuzzer(g, key, a, b)
+
+    nodes = [a, b]
     for i in range(2):
+        tk = cfg[nodes[i]][0][1]
+        if i == 0: sg = change_nonterminal(a, b, unmerged_grammar)
+        else: sg = change_nonterminal(b, a, unmerged_grammar)
+        fzz = fuzz.CheckFuzzer(sg, nodes[i], tk)
         v = fzz.fuzz(start)
-        r = check.check(v, program)
+        r = check.check(v)
         if not r:
             return None
+    # Merge checks passed.
     return g
 
 # the phase_3 is merging of keys
 # The keys are unordered pairs of repetition keys A'_i, A'_j which corresponds
 # to repetition subexpressions
 def phase_3(cfg, start):
+    global unmerged_grammar
+    unmerged_grammar = cfg
     # first collect all reps
     repetitions = [k for k in cfg if k.endswith('_rep>')]
     i = 0
@@ -725,21 +781,13 @@ def main():
     print("Final regex: " + str(regex))
 
     cfg, start = phase_2(regex)
-    print('\n<start> ::= ', start)
-    for k in cfg:
-        print("%s ::= " % k)
-        for alt in cfg[k]:
-            print("   | " + ' '.join(alt))
+
     with open('grammar_.json', 'w+') as f:
         json.dump({'<start>': [[start]], **cfg}, indent=4, fp=f)
 
     print('\n+++++ Merging Phase Begins +++++\n')
     merged = phase_3(cfg, start)
-    print('\n<start> ::= ', start)
-    for k in merged:
-        print("%s ::= " % k)
-        for alt in merged[k]:
-            print("   | " + ' '.join(alt))
+
 
     # Save the final grammar in the fuzzing book format
     with open('grammar.json', 'w+') as f:
