@@ -1,0 +1,37 @@
+{
+    "<start>": [["<Float>"]],
+    "<Float>": [
+        ["<Int>", ".", "<Ext>"],
+        [".", "<Ext>"],
+        ["<Int>", "."]],
+    "<Ext>": [
+        ["<Dec>"],
+        ["<Dec>", "<Letter>", "<UnaryOp>", "<Int>"],
+        ["<Dec>", "<Letter>", "<Int>"]],
+    "<Dec>": [
+        ["<DigitZs>", "<DigitNZ>"],
+        ["0"]],
+    "<Int>": [
+        ["<DigitNZ>", "<DigitZs>"],
+        ["0"]],
+    "<UnaryOp>": [["-"]],
+    "<Letter>": [
+        ["e"],
+        ["E"]],
+    "<DigitZs>": [
+        ["<DigitZ>", "<DigitZs>"],
+        []],
+    "<DigitNZ>": [
+        ["1"],
+        ["2"],
+        ["3"],
+        ["4"],
+        ["5"],
+        ["6"],
+        ["7"],
+        ["8"],
+        ["9"]],
+    "<DigitZ>": [
+        ["<DigitNZ>"],
+        ["0"]]
+}
