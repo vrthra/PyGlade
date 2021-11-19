@@ -400,23 +400,23 @@ def character_generalization_phase(regex):
     # Section 6.2 Page 8.
     global ROLL_BACK
     while True:
-        # At each iteration, we first save the current regex before working on the regex.
         regexcp = copy.deepcopy(regex)
         regex = gen_char(regex)
         if regex == NON_GENERALIZABLE:
-            # No more char generalizations are possible. We are done with Char Generalization Phase.
-            # Return last successfully generalized regex.
+            # No more character generalizations are possible. We are done with
+            # Character Generalization Phase. We return the last successfully
+            # generalized regex.
             return regexcp
-        else:
-            exprs = list(to_strings(regex))
-            for expr in exprs:
-                v = check.check(expr, regex)
-                if not v:  # this regex failed.
-                    ROLL_BACK = True
-                    gen_char(regex)
-                    break  # one sample of regex failed. Exit
-                else:
-                    ROLL_BACK = False
+
+        exprs = list(to_strings(regex))
+        for expr in exprs:
+            v = check.check(expr, regex)
+            if not v:  # this regex failed.
+                ROLL_BACK = True
+                gen_char(regex)
+                break  # one sample of regex failed. Exit
+            else:
+                ROLL_BACK = False
 
 
 def to_strings(regex):
