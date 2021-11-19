@@ -807,9 +807,11 @@ def main():
     if len(inputs) == 0:
         print("inputs file is empty! Please provide inputs.")
         sys.exit()
-    for input in inputs:
-        regexes.append(phase_1([i for i in input]))
+
+    for input_str in inputs:
+        regexes.append(phase_1([i for i in input_str]))
         print("One regex done")
+
     print("\n+++++ Phase 1 Done +++++\n")
     # Combine regexes into one regex as explained in Section 6.1
     regex = regexes[0]
