@@ -252,6 +252,7 @@ def gen_char(regex):
             # We remove the last added char from the list of alternatives.
             del regex.o[-1]
             return regex
+
         if regex.generalized >= len(all_chars) - 1:
             # All chars have been tried, we mark current unit as non-generalizable.
             regex.curr_char_gen = False
@@ -266,9 +267,7 @@ def gen_char(regex):
                 regex.generalized += 1
                 curr_char = all_chars[regex.generalized]
                 regex.o.append(curr_char)
-            elif regex.generalized == len(all_chars) - 1:  # All chars have been tried
-                regex.curr_char_gen = False
-                return NON_GENERALIZABLE
+
             regex.generalized += 1
             return regex
 
