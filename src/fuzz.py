@@ -14,7 +14,7 @@ class Fuzzer:
         self.grammar = grammar
 
     def fuzz(self, key='<start>', max_num=None, max_depth=None):
-        raise NotImplemented()
+        raise NotImplementedError
 
 COST = None
 
