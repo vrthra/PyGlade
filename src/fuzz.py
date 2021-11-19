@@ -53,9 +53,9 @@ class CheckFuzzer(Fuzzer):
         else:
             pathl = [(key, rule) for rule in self.grammar[key] if self.cost[key][str(rule)] == -1]
             if len(pathl) > 1:
-                clst = sorted([(self.normal_cost[k][str(r)], r) for k, r in pathl])
+                clst = sorted((self.normal_cost[k][str(r)], r) for k, r in pathl)
             else:
-                clst = sorted([(self.cost[key][str(rule)], rule) for rule in self.grammar[key]])
+                clst = sorted((self.cost[key][str(rule)], rule) for rule in self.grammar[key])
             rules = [r for c,r in clst if c == clst[0][0]]
 
         chosen_rule = random.choice(rules)
@@ -131,7 +131,7 @@ class LimitFuzzer(Fuzzer):
     def gen_key(self, key, depth, max_depth):
         if key not in self.grammar: return key
         if depth > max_depth:
-            clst = sorted([(self.cost[key][str(rule)], rule) for rule in self.grammar[key]])
+            clst = sorted((self.cost[key][str(rule)], rule) for rule in self.grammar[key])
             rules = [r for c,r in clst if c == clst[0][0]]
         else:
             rules = self.grammar[key]
