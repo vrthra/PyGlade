@@ -275,12 +275,8 @@ def gen_char(regex):
 
 
 def atomize(regex):
-    # Before executing the Char Generalization Phase, we break
-    # strings in regex into separate chars, that is,
-    # given a One regex containing a string, we break it into
-    # a Seq regex that contains multiple One regexes,
-    # each containing a single char. This way we can systematically
-    # generalize each char/terminal/sigma_i separately.
+    # Explode One-regexes into sequences of One-regexes of one characters.
+    # e.g. ("abc")* -> ("a" "b" "c")*
 
     if isinstance(regex, Rep):
         regex.a = atomize(regex.a)
@@ -578,7 +574,13 @@ def phase_1(alpha_in):
         if not started:
             break
 
+    # Before executing the Character Generalization Phase, we break strings in
+    # regex into separate chars, that is, given a One-regex, we break it into a
+    # Seq-regex that contains One-regexes each containing a single char. This
+    # way we can systematically generalize each char/terminal/sigma_i
+    # separately.
     atomized_reg = atomize(curr_reg)
+
     final_reg = char_gen_phase(atomized_reg)
     compact_reg = linearize_alt(final_reg)
     return compact_reg
