@@ -565,19 +565,20 @@ def phase_1(alpha_in):
             var = str(get_dict(ay))
             if var in valid_regexes:
                 continue
-            for expr in exprs:
-                if str(regex) in regex_map:
-                    all_true = regex_map[str(regex)]
-                    break  # Do not consider previous regexes as candidates. Exit
-                elif str(regex) not in regex_map:
+
+            if str(regex) in regex_map:
+                all_true = regex_map[str(regex)]
+            else:
+                all_true = True
+                for expr in exprs:
                     v = check.check(expr, regex)
                     if not v:  # this regex failed.
                         all_true = False
-                        regex_map[str(regex)] = all_true
                         break  # one sample of regex failed. Exit
-                all_true = True
+
+            regex_map[str(regex)] = all_true
+
             if all_true:  # get the first regex that covers all samples.
-                regex_map[str(regex)] = all_true
                 ayy = copy.deepcopy(regex)
                 var = str(get_dict(ayy))
                 valid_regexes.add(var)
