@@ -257,18 +257,18 @@ def gen_char(regex):
             # All chars have been tried, we mark current unit as non-generalizable.
             regex.curr_char_gen = False
             return NON_GENERALIZABLE
-        else:
-            # perform a generalization step.
-            regex.curr_char_gen = True
-            curr_char = all_chars[regex.generalized]
-            if curr_char == regex.o[0]:
-                # skip adding this character since it is the initial one
-                regex.generalized += 1
-                curr_char = all_chars[regex.generalized]
 
-            regex.o.append(curr_char)
+        # perform a generalization step.
+        regex.curr_char_gen = True
+        curr_char = all_chars[regex.generalized]
+        if curr_char == regex.o[0]:
+            # skip adding this character since it is the initial one
             regex.generalized += 1
-            return regex
+            curr_char = all_chars[regex.generalized]
+
+        regex.o.append(curr_char)
+        regex.generalized += 1
+        return regex
 
 
 def atomize(regex):
