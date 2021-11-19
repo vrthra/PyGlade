@@ -392,7 +392,7 @@ def linearize_alt(regex):
 ROLL_BACK = False  # Roll back last character generalization step.
 
 
-def char_gen_phase(regex):
+def character_generalization_phase(regex):
     # Character generalization phase that generalizes
     # terminals in the synthesized regular expression R.
     # The algorithm considers generalizing each terminal
@@ -581,9 +581,8 @@ def phase_1(alpha_in):
     # separately.
     atomized_reg = atomize(curr_reg)
 
-    final_reg = char_gen_phase(atomized_reg)
-    compact_reg = linearize_alt(final_reg)
-    return compact_reg
+    final_reg = character_generalization_phase(atomized_reg)
+    return linearize_alt(final_reg)
 
 
 def to_key(prefix, suffix=''):
