@@ -263,7 +263,8 @@ def gen_char(regex):
             curr_char = all_chars[regex.generalized]
             if curr_char != regex.o[0]:
                 regex.o.append(curr_char)
-            elif regex.generalized < len(all_chars) - 1:  # Try the next char in the list
+            else:
+                # Try the next char in the list
                 regex.generalized += 1
                 curr_char = all_chars[regex.generalized]
                 regex.o.append(curr_char)
