@@ -365,11 +365,13 @@ def linearize_alt(regex):
 
 
 def character_generalization_phase(regex):
-    # Character generalization phase that generalizes
-    # terminals in the synthesized regular expression `regex`.
-    # The algorithm considers generalizing each terminal
-    # in the regex to every (different) terminal in Sigma.
-    # Section 6.2 Page 8.
+    # Character generalization phase that generalizes terminals in the
+    # synthesized regular expression `regex`. The algorithm considers
+    # generalizing each terminal in the regex to every (different) terminal in
+    # Sigma.
+    #
+    # See Section 6.2 Page 8.
+
     for generalization_attempt in gen_char(regex):
         exprs = list(to_strings(regex))
         if not all(check.check(expr, regex) for expr in exprs):
