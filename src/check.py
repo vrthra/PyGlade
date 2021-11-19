@@ -16,5 +16,5 @@ def _check(s):
 		ET.fromstring(s)
 		return True
 
-	except Exception as e:
+	except Exception:
 		return False

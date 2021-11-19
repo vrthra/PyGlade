@@ -292,8 +292,7 @@ def newly_generalized_descendant(regex):
         else: return False
 
     elif isinstance(regex, Seq):
-        i = 0
-        for obj in regex.arr:           
+        for obj in regex.arr:
             if newly_generalized_descendant(obj): return True
         return False
 
@@ -369,7 +368,6 @@ def char_gen_phase(regex):
     # Section 6.2 Page 8. 
     global ROLL_BACK
     global CHECKS
-    x = 0
     while True:
         # At each iteration, we first save the current regex before working on the regex.
         regexcp = copy.deepcopy(regex)
@@ -471,7 +469,6 @@ def get_candidates(regex):
 
 # This helper function is here only to help print the regex heirarchy.
 def get_dict(regex):
-    suffix = str(random.randint(1, 999))
     if isinstance(regex, Rep):
         return {"Rep": [get_dict(regex.a), regex.newly_generalized]}
     elif isinstance(regex, Alt):
@@ -621,7 +618,6 @@ def extract_one(regex, prefix):
     if len(regex.o) == 1: # one is not a non terminal
         return {}, ''.join(regex.o[0])
     else: # Regex One is a non terminal, meaning it has been generalized to a list of n chars. Therefore we treat it as an Alt object with n alternatives. See example in section 6.2
-        i = 0
         alts = []
         g = {}
         for t in regex.o:

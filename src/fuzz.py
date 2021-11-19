@@ -113,7 +113,7 @@ class CheckFuzzer(Fuzzer):
             for rule in grammar[k]:
                 try:
                     cost[k][str(rule)] = self.expansion_cost(grammar, rule, set())
-                except Exception as e:
+                except Exception:
                     cost[k][str(rule)] = float('inf')
         return cost
 
@@ -160,7 +160,7 @@ class LimitFuzzer(Fuzzer):
             for rule in grammar[k]:
                 try:
                     cost[k][str(rule)] = self.expansion_cost(grammar, rule, set())
-                except Exception as e:
+                except Exception:
                     cost[k][str(rule)] = float('inf')
         return cost
 
@@ -170,7 +170,7 @@ def main(fn):
     fuzzer = LimitFuzzer(mgrammar)
     correct = 0
     total = config.FUZZ_VERIFY
-    for i in range(total):
+    for _ in range(total):
         val = fuzzer.fuzz(mgrammar['<start>'][0][0])
         #val = fuzzer.fuzz(mgrammar['[grammar]']['<start>'][0][0])
         correc = check.check(val)
