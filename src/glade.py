@@ -543,7 +543,6 @@ def phase_1(alpha_in):
     done = False
     curr_reg = One([alpha_in], 1)
     while not done:
-        next_step = False
         started = False
         # The get_candidates function supplies candidates, and is equivalent to the function "ConstructCandidates()" in the paper.
         for regex in get_candidates(curr_reg):
@@ -552,9 +551,7 @@ def phase_1(alpha_in):
                 # No more generalizations are possible. We are done with Phase 1.
                 done = True
                 break
-            elif next_step:
-                # We go to the next generalization step.
-                break
+
             regex = del_double_rep(regex)
             # to_strings() function is equivalent to the function ConstructChecks() in the paper.
             exprs = list(to_strings(regex))
@@ -572,12 +569,13 @@ def phase_1(alpha_in):
 
             regex_map[str(regex)] = all_true
 
-            if all_true:  # get the first regex that covers all samples.
+            if all_true:
+                # we found the candidate for the next generalization step
                 ayy = copy.deepcopy(regex)
                 var = str(get_dict(ayy))
                 valid_regexes.add(var)
                 curr_reg = regex
-                next_step = True
+                break
 
         if not started:
             break
