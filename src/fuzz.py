@@ -8,7 +8,6 @@ import check
 import config
 
 
-# +
 class Fuzzer:
     def __init__(self, grammar):
         self.grammar = grammar
@@ -21,9 +20,9 @@ COST = None
 
 
 # CheckFuzzer class implements the check construction for merges
-# For each merge, two checks are constructed, follwoing section 5.3.
+# For each merge, two checks are constructed, following section 5.3.
 # The new key recently added into a grammar is assigned a cost of -1,
-# ie: the least cost, that is to insure that it gets expanded first.
+# i.e.: the least cost, that is to insure that it gets expanded first.
 class CheckFuzzer(Fuzzer):
     def symbol_cost(self, grammar, symbol, seen):
         if symbol in self.key_cost:
@@ -52,7 +51,7 @@ class CheckFuzzer(Fuzzer):
 
         elif key == self.key:
             if self.check == 2:
-                # 2 repetitions have been generated. Stop there.
+                # 2 repetitions have been generated. Stop here.
                 rules = [self.grammar[key][1]]
             else:
                 rules = [self.grammar[key][0]]
@@ -74,7 +73,7 @@ class CheckFuzzer(Fuzzer):
                 rules = [r for c, r in clst if c == clst[1][0]]
                 chosen_rule = random.choice(rules)
 
-        # The following to ensure that the traget non-terminal rule is set back to the original rule with rep of 1.
+        # The following to ensure that the target non-terminal rule is set back to the original rule with rep of 1.
         chosen_rule = [self.ini_token if key != self.key and token == self.key and self.check == 2 else token for token in chosen_rule]
         current_expansion = key + ''.join(chosen_rule)
 
@@ -89,7 +88,7 @@ class CheckFuzzer(Fuzzer):
         return self.gen_key(key=key, depth=0, max_depth=max_depth)
 
     def reduce_reps(self, grammar):
-        # Set all repetitions to 1 repetition. Except for the traget non-terminal.
+        # Set all repetitions to 1 repetition, except for the target non-terminal.
         new_g = copy.deepcopy(grammar)
         for k in new_g:
             if k.endswith('rep>') and k != self.key:
@@ -179,7 +178,6 @@ def main(fn):
     total = config.FUZZ_VERIFY
     for _ in range(total):
         val = fuzzer.fuzz(mgrammar['<start>'][0][0])
-        # val = fuzzer.fuzz(mgrammar['[grammar]']['<start>'][0][0])
         correc = check.check(val)
         if correc:
             print("Correct Value: " + val)

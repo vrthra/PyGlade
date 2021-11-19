@@ -11,7 +11,7 @@ def check(s, label=None):
     return v
 
 
-# This is the oracle. Here, we use a xml parser
+# This is the oracle. Here, we use an XML parser
 # but you can replace it with any context free oracle. Return
 # True if your oracle agrees with the input.
 def _check(s):

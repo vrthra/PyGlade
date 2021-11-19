@@ -19,12 +19,12 @@ class Regex:
                 yield from self.a1.to_rules()
                 yield from self.a2.to_rules()
                 self.newly_generalized = False
-            elif self.a1_gen or newly_generalized_descendant(self.a1):  # Expand the first alternative if it, or one of it's descendants were newly generalized.  
+            elif self.a1_gen or newly_generalized_descendant(self.a1):  # Expand the first alternative if it, or one of its descendants were newly generalized.
                 yield from self.a1.to_rules()
-            elif self.a2_gen or newly_generalized_descendant(self.a2):  # Expand the second alternative if it, or one of it's descendants were newly generalized. 
+            elif self.a2_gen or newly_generalized_descendant(self.a2):  # Expand the second alternative if it, or one of its descendants were newly generalized.
                 yield from self.a2.to_rules()
 
-            else:  # Else it's part of the context. We don't enumerate all rules, but pick randomely only one of the two component.
+            else:  # Else it's part of the context. We don't enumerate all rules, but pick randomly only one of the two components.
                 x = random.choice([True, False])
                 if x:
                     yield from self.a1.to_rules()
@@ -51,7 +51,7 @@ class Regex:
 
         elif isinstance(self, One):
             assert not isinstance(self.o, Regex)
-            yield self.o[-1] # return last added character, or the original character if none were added.
+            yield self.o[-1]  # return last added character, or the original character if none were added.
         else:
             assert False
 
@@ -117,22 +117,22 @@ class Alts(Regex):
 
 class One(Regex):
     def __init__(self, o, extra, generalized=0, curr_char_gen=False):
-        self.o = o # A list containing the original character and all possible character replacements.
-        self.next_gen = extra # Substrings are annotated with extra data to express possible further generalization options.
-                              # 0: for no generalization, 1: for Rep, 2: for Alt.
-                              # Section 4.1: These annotations indicate that the
-                              # bracketed substring in the current regular expression can be
-                              # generalized by adding either a repetition (if tau = rep) or an
-                              # alternation (if tau = alt).
+        self.o = o  # A list containing the original character and all possible character replacements.
+        self.next_gen = extra  # Substrings are annotated with extra data to express possible further generalization options.
+                               # 0: for no generalization, 1: for Rep, 2: for Alt.
+                               # Section 4.1: These annotations indicate that the
+                               # bracketed substring in the current regular expression can be
+                               # generalized by adding either a repetition (if tau = rep) or an
+                               # alternation (if tau = alt).
         self.generalized = generalized   # 127 if all possible character replacements have been tried.
-        self.curr_char_gen = curr_char_gen # True if it's the currect treminal being generalized in the Char Generalization Phase.
+        self.curr_char_gen = curr_char_gen  # True if it's the current terminal being generalized in the Char Generalization Phase.
 
     def __repr__(self):
         return "(%s)" % ' '.join([repr(a) for a in self.o if a])
 
 
 # Alternations: If generalizing P alt[alpha]Q, then
-# for  each decomposition alpha = a_1 a_2, where a_1 != [] and
+# for each decomposition alpha = a_1 a_2, where a_1 != [] and
 # a_2 != [], generate P (rep[alpha_1] + alt[alpha_2]) Q
 # ...
 # in both cases, P alpha Q is also generated
@@ -143,7 +143,7 @@ class One(Regex):
 # In either case, P alpha Q is ranked last
 # Note that candidate repetitions and candidate alternations can
 # be ordered independently
-# We don't genralize all descendants in one go, but only one substring at each step. Section 4.1 page 4
+# We don't generalize all descendants in one go, but only one substring at each step. Section 4.1 page 4
 # each generalization step selects a single bracketed substring [\alpha]\tau and generates candidates based on decompositions of \alpha
 
 
@@ -206,7 +206,7 @@ def gen_char(regex):
     # unit (One object). Then adds one alternative char to it and return.
     if isinstance(regex, Rep):
         x = gen_char(regex.a)
-        if x == NON_GENERALIZABLE:  # We reached a node that is non generalizable.
+        if x == NON_GENERALIZABLE:  # We reached a node that is non-generalizable.
             return NON_GENERALIZABLE
         else:
             return Rep(x, False)
@@ -274,7 +274,7 @@ def atomize(regex):
     # given a One regex containing a string, we break it into
     # a Seq regex that contains multiple One regexes,
     # each containing a single char. This way we can systematically
-    # generalize each char/teminal/sigma_i separately.
+    # generalize each char/terminal/sigma_i separately.
 
     if isinstance(regex, Rep):
         regex.a = atomize(regex.a)
@@ -306,7 +306,7 @@ def atomize(regex):
 
 
 def newly_generalized_descendant(regex):
-    # Check if one of regex children nodes or descendants has been newly generalized
+    # Check if one descendant has been newly generalized.
     # The function is useful when constructing checks.
 
     if isinstance(regex, Rep):
@@ -335,7 +335,7 @@ def newly_generalized_descendant(regex):
 
 def del_double_rep(regex):
     # To make regex more compact and reduce depth: Given nested Alt objects.
-    # we transform it into a single Alts object.
+    # We transform it into a single Alts object.
 
     if isinstance(regex, Rep):
         if isinstance(regex.a, Rep):
@@ -364,7 +364,7 @@ def del_double_rep(regex):
 
 def compact(regex):
     # To make regex more compact and reduce depth: Given nested Alt objects.
-    # we transform it into a single Alts object.
+    # We transform it into a single Alts object.
 
     if isinstance(regex, Rep):
         regex.a = compact(regex.a)
@@ -398,7 +398,7 @@ ROLL_BACK = False  # Roll back last character generalization step.
 
 
 def char_gen_phase(regex):
-    # character generalization phase that generalizes
+    # Character generalization phase that generalizes
     # terminals in the synthesized regular expression R.
     # The algorithm considers generalizing each terminal
     # in the regex to every (different) terminal in Sigma.
@@ -455,12 +455,12 @@ NON_GENERALIZABLE = -1
 
 
 # The get_candidates function is the generator of candidates. It's called at each step once, it selects a terminal substring
-# then generates all posssible generalization for that substring. Each representing a candidate regex.
+# then generates all possible generalization for that substring. Each representing a candidate regex.
 def get_candidates(regex):
     exp = False  # Used to insure that we don't modify more that one branch in each step.
     if isinstance(regex, Rep):
         for x in get_candidates(regex.a):
-            if x == NON_GENERALIZABLE:  # We reached a leaf that is non generalizable.
+            if x == NON_GENERALIZABLE:  # We reached a leaf that is non-generalizable.
                 continue
             else:
                 yield Rep(x, False)
@@ -504,7 +504,7 @@ def get_candidates(regex):
             regex.next_gen = 0
 
 
-# This helper function is here only to help print the regex heirarchy.
+# This helper function is here only to help print the regex hierarchy.
 def get_dict(regex):
     if isinstance(regex, Rep):
         return {"Rep": [get_dict(regex.a), regex.newly_generalized]}
@@ -520,20 +520,20 @@ def get_dict(regex):
 
 
 def phase_1(alpha_in):
-    # active learning of regular righthandside from bastani et al.
-    # the idea is as follows: We choose a single nt to refine, and a single
+    # Active learning of regular righthandside from bastani et al.
+    # The idea is as follows: We choose a single non-terminal to refine, and a single
     # alternative at a time.
     # Then, consider that single alternative as a sting, with each token a
     # character. Then apply regular expression synthesis to determine the
-    # abstraction candiates. Place each abstraction candidate as the replacement
-    # for that nt, and generate the minimum string. Evaluate and verify that
+    # abstraction candidates. Place each abstraction candidate as the replacement
+    # for that non-terminal, and generate the minimum string. Evaluate and verify that
     # the string is accepted (adv: verify that the derivation tree is
     # as expected). Do this for each alternative, and we have the list of actual
     # alternatives.
 
     # seed input alpha_in is annotated rep(alpha_in)
     # Then, each generalization step selects a single bracketed substring
-    # T[alpha] and generates candiates based on decompositions of alpha
+    # T[alpha] and generates candidates based on decompositions of alpha
     # i.e. an expression of alpha as alpha = a_1, a_2, ..a_k
 
     # Each iteration of the while loop corresponds to one generalization step.
@@ -556,7 +556,7 @@ def phase_1(alpha_in):
                 break
             all_true = False
             regex = del_double_rep(regex)
-            # to_strings() function is equivlalent to the function ConstructChecks() in the paper.
+            # to_strings() function is equivalent to the function ConstructChecks() in the paper.
             exprs = list(to_strings(regex))
 
             ay = copy.deepcopy(regex)
@@ -602,7 +602,7 @@ def to_key(prefix, suffix=''):
 # A_i -> alpha_1 A'_i A_k
 # A'i -> \e + A'_i A_j
 # equivalent to A_i -> alpha_1 A_j* A_k
-# whre A_k comes from rep[alpha_3] and
+# where A_k comes from rep[alpha_3] and
 # A_j comes from alt[Alpha_2]
 
 
@@ -668,10 +668,10 @@ def extract_one(regex, prefix):
 
 
 def phase_2(regex):
-    # the basic idea is to first translate the regexp into a
+    # The basic idea is to first translate the regexp into a
     # CFG, where the terminal symbols are the symbols in the
-    # regex, and the generalization steps are nonterminals
-    # and next, to equate the nonterminals in that grammar
+    # regex, and the generalization steps are non-terminals
+    # and next, to equate the non-terminals in that grammar
     # to each other
     # Alt, Rep, Seq, One
     prefix = [0]
@@ -736,7 +736,7 @@ def gen_new_grammar(a, b, key, cfgx):
         new_g[k] = new_alts
         for rule in cfg[k]:
             new_rule = [key if (token in {a, b} and k != token and not k.endswith('_>')) else token for token in rule]
-            # if the current token is a or b, and is not the current key, then replace that token with the new key.
+            # If the current token is a or b, and is not the current key, then replace that token with the new key.
             # This way we equate the non-terminals a and b. See example in Section 5.
             new_alts.append(new_rule)
 
@@ -769,7 +769,7 @@ def consider_merging(a, b, key, cfg, start):
     return g
 
 
-# the phase_3 is merging of keys
+# The phase_3 is merging of keys
 # The keys are unordered pairs of repetition keys A'_i, A'_j which corresponds
 # to repetition subexpressions
 def phase_3(cfg, start):
@@ -794,7 +794,6 @@ def main():
     inputs = []
     regexes = []
 
-    # We read inputs from a file.
     with open('inputs') as f:
         inputs = [line.strip() for line in f]
 
@@ -807,6 +806,7 @@ def main():
         print("One regex done")
 
     print("\n+++++ Phase 1 Done +++++\n")
+
     # Combine regexes into one regex as explained in Section 6.1
     regex = regexes[0]
     regexes.pop(0)
@@ -829,6 +829,5 @@ def main():
 
 
 if __name__ == '__main__':
-    # we assume check is modified to include the
-    # necessary oracle
+    # we assume check is modified to include the necessary oracle
     main()
