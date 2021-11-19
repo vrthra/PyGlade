@@ -17,26 +17,20 @@ class Regex:
     def to_rules(self):
         if isinstance(self, Alt):
             if self.newly_generalized:
-                for a1 in self.a1.to_rules():
-                    yield a1
-                for a2 in self.a2.to_rules():
-                    yield a2
+                yield from self.a1.to_rules()
+                yield from self.a2.to_rules()
                 self.newly_generalized = False
             elif self.a1_gen or newly_generalized_descendant(self.a1):  # Expand the first alternative if it, or one of it's descendants were newly generalized.  
-                for a1 in self.a1.to_rules():
-                    yield a1
+                yield from self.a1.to_rules()
             elif self.a2_gen or newly_generalized_descendant(self.a2):  # Expand the second alternative if it, or one of it's descendants were newly generalized. 
-                for a2 in self.a2.to_rules():
-                    yield a2
+                yield from self.a2.to_rules()
 
             else:  # Else it's part of the context. We don't enumerate all rules, but pick randomely only one of the two component.
                 x = random.choice([True, False])
                 if x:
-                    for a1 in self.a1.to_rules():
-                        yield a1
+                    yield from self.a1.to_rules()
                 else:
-                    for a2 in self.a2.to_rules():
-                        yield a2
+                    yield from self.a2.to_rules()
 
         elif  isinstance(self, Rep):
             if self.newly_generalized:
@@ -471,12 +465,10 @@ def get_candidates(regex):
         if regex.next_gen == 0:
             yield NON_GENERALIZABLE
         elif regex.next_gen == 1:
-            for a in gen_rep(regex.o[-1]):
-                yield a
+            yield from gen_rep(regex.o[-1])
             regex.next_gen = 0
         elif regex.next_gen == 2:
-            for a in gen_alt(regex.o[-1]):
-                yield a
+            yield from gen_alt(regex.o[-1])
             regex.next_gen = 0
 
 # This helper function is here only to help print the regex heirarchy.
