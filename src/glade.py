@@ -362,17 +362,16 @@ def linearize_rep(regex):
         return regex
 
 
-def compact(regex):
-    # To make regex more compact and reduce depth: Given nested Alt objects.
-    # We transform it into a single Alts object.
+def linearize_alt(regex):
+    # Linearize nested Alt in regex. e.g. ((a|(b|c)) d) -> ((a|b|c) d)
 
     if isinstance(regex, Rep):
-        regex.a = compact(regex.a)
+        regex.a = linearize_alt(regex.a)
         return regex
 
     elif isinstance(regex, Alt):
-        e1 = compact(regex.a1)
-        e2 = compact(regex.a2)
+        e1 = linearize_alt(regex.a1)
+        e2 = linearize_alt(regex.a2)
         if not isinstance(e1, Alts) and not isinstance(e2, Alts):
             return Alts([e1, e2])
         elif isinstance(e1, Alts) and not isinstance(e2, Alts):
@@ -385,7 +384,7 @@ def compact(regex):
     elif isinstance(regex, Seq):
         i = 0
         for obj in regex.arr:
-            obj = compact(obj)
+            obj = linearize_alt(obj)
             regex.arr[i] = obj
             i += 1
         return regex
@@ -581,7 +580,7 @@ def phase_1(alpha_in):
 
     atomized_reg = atomize(curr_reg)
     final_reg = char_gen_phase(atomized_reg)
-    compact_reg = compact(final_reg)
+    compact_reg = linearize_alt(final_reg)
     return compact_reg
 
 
