@@ -9,8 +9,8 @@ import check
 import config
 import fuzz
 
-checks = 0
-unmerged_grammar = {}
+CHECKS = 0
+UNMERGED_GRAMMAR = {}
 class Regex:
     def to_rules(self):
         if isinstance(self, Alt):
@@ -215,11 +215,11 @@ def gen_char(regex):
         return NON_GENERALIZABLE
 
     elif isinstance(regex, One):
-        global roll_back
-        if roll_back == True and regex.curr_char_gen == True:
+        global ROLL_BACK
+        if ROLL_BACK == True and regex.curr_char_gen == True:
             # We remove the last added char from the list of alternatives.
             del regex.o[-1]
-            roll_back = False
+            ROLL_BACK = False
             return regex
         if regex.generalized > 126:
             # All chars have been tried, we mark current unit as non-generalizable.
@@ -359,7 +359,7 @@ def compact(regex):
     elif isinstance(regex, One):
         return regex
 
-roll_back = False # Roll back last character generalization step. 
+ROLL_BACK = False # Roll back last character generalization step.
 
 def char_gen_phase(regex):
     # character generalization phase that generalizes
@@ -367,8 +367,8 @@ def char_gen_phase(regex):
     # The algorithm considers generalizing each terminal
     # in the regex to every (different) terminal in Sigma.
     # Section 6.2 Page 8. 
-    global roll_back
-    global checks
+    global ROLL_BACK
+    global CHECKS
     x = 0
     while True:
         # At each iteration, we first save the current regex before working on the regex.
@@ -381,14 +381,14 @@ def char_gen_phase(regex):
         else:
             exprs = list(to_strings(regex))
             for expr in exprs:
-                checks += 1
+                CHECKS += 1
                 v = check.check(expr, regex)
                 if not v: # this regex failed.
-                    roll_back = True
+                    ROLL_BACK = True
                     gen_char(regex)
                     break # one sample of regex failed. Exit
                 else:
-                    roll_back = False
+                    ROLL_BACK = False
 
 
 def to_strings(regex):
@@ -507,7 +507,7 @@ def phase_1(alpha_in):
 
     done = False
     curr_reg = One([alpha_in], 1)
-    global checks
+    global CHECKS
     while done == False:
         next_step = False
         started = False
@@ -537,7 +537,7 @@ def phase_1(alpha_in):
                     all_true = regex_map[str(regex)]
                     break # Do not consider previous regexes as candidates. Exit
                 elif str(regex) not in regex_map:
-                    checks += 1
+                    CHECKS += 1
                     v = check.check(expr, regex)
                     if not v: # this regex failed.
                         all_true = False
@@ -707,15 +707,15 @@ def gen_new_grammar(a, b, key, cfgx):
     return new_g, key, test
 
 def consider_merging(a, b, key, cfg, start):
-    global unmerged_grammar
+    global UNMERGED_GRAMMAR
     g, key, test = gen_new_grammar(a, b, key, cfg)
     if test == False: return False
 
     nodes = [a, b]
     for i in range(2):
         tk = cfg[nodes[i]][0][1]
-        if i == 0: sg = change_nonterminal(a, b, unmerged_grammar)
-        else: sg = change_nonterminal(b, a, unmerged_grammar)
+        if i == 0: sg = change_nonterminal(a, b, UNMERGED_GRAMMAR)
+        else: sg = change_nonterminal(b, a, UNMERGED_GRAMMAR)
         fzz = fuzz.CheckFuzzer(sg, nodes[i], tk)
         v = fzz.fuzz(start)
         r = check.check(v)
@@ -728,8 +728,8 @@ def consider_merging(a, b, key, cfg, start):
 # The keys are unordered pairs of repetition keys A'_i, A'_j which corresponds
 # to repetition subexpressions
 def phase_3(cfg, start):
-    global unmerged_grammar
-    unmerged_grammar = cfg
+    global UNMERGED_GRAMMAR
+    UNMERGED_GRAMMAR = cfg
     # first collect all reps
     repetitions = [k for k in cfg if k.endswith('_rep>')]
     i = 0
@@ -750,9 +750,9 @@ def main():
 
     # We read inputs from a file.
     file1 = open('inputs')
-    Lines = file1.readlines()
+    lines = file1.readlines()
 
-    for input in Lines:
+    for input in lines:
         inputs.append(input.strip())
 
     if len(inputs) == 0:

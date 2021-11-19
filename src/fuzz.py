@@ -148,7 +148,6 @@ class LimitFuzzer(Fuzzer):
         return self.gen_key(key=key, depth=0, max_depth=max_depth)
 
     def __init__(self, grammar):
-        global counter
         super().__init__(grammar)
         self.key_cost = {}
         COST = self.compute_cost(grammar)
@@ -170,7 +169,7 @@ def main(fn):
         mgrammar = json.load(fp=f)
     fuzzer = LimitFuzzer(mgrammar)
     correct = 0
-    total = config.FuzzVerify
+    total = config.FUZZ_VERIFY
     for i in range(total):
         val = fuzzer.fuzz(mgrammar['<start>'][0][0])
         #val = fuzzer.fuzz(mgrammar['[grammar]']['<start>'][0][0])

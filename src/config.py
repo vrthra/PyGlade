@@ -4,4 +4,4 @@ SAMPLES_FOR_REP = [0, 2]
 
 
 # How many times to fuzz to verify
-FuzzVerify = 100
+FUZZ_VERIFY = 100
