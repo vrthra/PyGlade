@@ -251,7 +251,6 @@ def gen_char(regex):
         if ROLL_BACK and regex.curr_char_gen:
             # We remove the last added char from the list of alternatives.
             del regex.o[-1]
-            ROLL_BACK = False
             return regex
         if regex.generalized > 126:
             # All chars have been tried, we mark current unit as non-generalizable.
@@ -409,14 +408,11 @@ def character_generalization_phase(regex):
             return regexcp
 
         exprs = list(to_strings(regex))
-        for expr in exprs:
-            v = check.check(expr, regex)
-            if not v:  # this regex failed.
-                ROLL_BACK = True
-                gen_char(regex)
-                break  # one sample of regex failed. Exit
-            else:
-                ROLL_BACK = False
+        if not all(check.check(expr, regex) for expr in exprs):
+            # roll back the last change
+            ROLL_BACK = True
+            gen_char(regex)
+            ROLL_BACK = False
 
 
 def to_strings(regex):
