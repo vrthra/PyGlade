@@ -801,11 +801,8 @@ def main():
     regexes = []
 
     # We read inputs from a file.
-    file1 = open('inputs')
-    lines = file1.readlines()
-
-    for input in lines:
-        inputs.append(input.strip())
+    with open('inputs') as f:
+        inputs = [line.strip() for line in f]
 
     if len(inputs) == 0:
         print("inputs file is empty! Please provide inputs.")
