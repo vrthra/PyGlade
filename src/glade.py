@@ -9,7 +9,6 @@ import check
 import config
 import fuzz
 
-CHECKS = 0
 UNMERGED_GRAMMAR = {}
 
 
@@ -405,7 +404,6 @@ def char_gen_phase(regex):
     # in the regex to every (different) terminal in Sigma.
     # Section 6.2 Page 8.
     global ROLL_BACK
-    global CHECKS
     while True:
         # At each iteration, we first save the current regex before working on the regex.
         regexcp = copy.deepcopy(regex)
@@ -417,7 +415,6 @@ def char_gen_phase(regex):
         else:
             exprs = list(to_strings(regex))
             for expr in exprs:
-                CHECKS += 1
                 v = check.check(expr, regex)
                 if not v:  # this regex failed.
                     ROLL_BACK = True
@@ -454,7 +451,6 @@ def to_strings(regex):
 str_db = {}
 regex_map = {}
 valid_regexes = set()
-regex_dict = dict()
 NON_GENERALIZABLE = -1
 
 
@@ -545,7 +541,6 @@ def phase_1(alpha_in):
 
     done = False
     curr_reg = One([alpha_in], 1)
-    global CHECKS
     while not done:
         next_step = False
         started = False
@@ -574,7 +569,6 @@ def phase_1(alpha_in):
                     all_true = regex_map[str(regex)]
                     break  # Do not consider previous regexes as candidates. Exit
                 elif str(regex) not in regex_map:
-                    CHECKS += 1
                     v = check.check(expr, regex)
                     if not v:  # this regex failed.
                         all_true = False

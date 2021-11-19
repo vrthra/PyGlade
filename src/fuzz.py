@@ -104,7 +104,6 @@ class CheckFuzzer(Fuzzer):
         super().__init__(ng)
         self.check = 0
         self.past_expansions = set()
-        self.alt = 0  # First alternative index to try.
         self.key_cost = {}
         COST = self.compute_cost(ng)
         self.cost = COST
