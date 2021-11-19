@@ -555,7 +555,6 @@ def phase_1(alpha_in):
             elif next_step:
                 # We go to the next generalization step.
                 break
-            all_true = False
             regex = del_double_rep(regex)
             # to_strings() function is equivalent to the function ConstructChecks() in the paper.
             exprs = list(to_strings(regex))
@@ -569,12 +568,7 @@ def phase_1(alpha_in):
             if str(regex) in regex_map:
                 all_true = regex_map[str(regex)]
             else:
-                all_true = True
-                for expr in exprs:
-                    v = check.check(expr, regex)
-                    if not v:  # this regex failed.
-                        all_true = False
-                        break  # one sample of regex failed. Exit
+                all_true = all(check.check(expr, regex) for expr in exprs)
 
             regex_map[str(regex)] = all_true
 
