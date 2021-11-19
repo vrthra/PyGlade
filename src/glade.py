@@ -334,27 +334,26 @@ def newly_generalized_descendant(regex):
         return False
 
 
-def del_double_rep(regex):
-    # To make regex more compact and reduce depth: Given nested Alt objects.
-    # We transform it into a single Alts object.
+def linearize_rep(regex):
+    # Linearize nested Rep in regex. e.g. ((((a)*)*)* | b) -> ((a)* | b)
 
     if isinstance(regex, Rep):
         if isinstance(regex.a, Rep):
             regex = regex.a
-            return del_double_rep(regex)
+            return linearize_rep(regex)
         else:
-            child = del_double_rep(regex.a)
+            child = linearize_rep(regex.a)
             return Rep(child, regex.newly_generalized)
 
     elif isinstance(regex, Alt):
-        regex.a1 = del_double_rep(regex.a1)
-        regex.a2 = del_double_rep(regex.a2)
+        regex.a1 = linearize_rep(regex.a1)
+        regex.a2 = linearize_rep(regex.a2)
         return regex
 
     elif isinstance(regex, Seq):
         i = 0
         for obj in regex.arr:
-            obj = del_double_rep(obj)
+            obj = linearize_rep(obj)
             regex.arr[i] = obj
             i += 1
         return regex
@@ -552,12 +551,12 @@ def phase_1(alpha_in):
                 done = True
                 break
 
-            regex = del_double_rep(regex)
+            regex = linearize_rep(regex)
             # to_strings() function is equivalent to the function ConstructChecks() in the paper.
             exprs = list(to_strings(regex))
 
             ay = copy.deepcopy(regex)
-            ay = del_double_rep(ay)
+            ay = linearize_rep(ay)
             var = str(get_dict(ay))
             if var in valid_regexes:
                 continue
