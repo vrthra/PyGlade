@@ -104,7 +104,7 @@ class Seq(Regex):
         self.arr = arr
 
     def __repr__(self):
-        return "(%s)" % ' '.join([repr(a) for a in self.arr if a])
+        return "(%s)" % ' '.join(repr(a) for a in self.arr if a)
 
 
 class Alts(Regex):
@@ -112,7 +112,7 @@ class Alts(Regex):
         self.arr = arr
 
     def __repr__(self):
-        return "(%s)" % ' | '.join([repr(a) for a in self.arr if a])
+        return "(%s)" % ' | '.join(repr(a) for a in self.arr if a)
 
 
 class One(Regex):
@@ -128,7 +128,7 @@ class One(Regex):
         self.curr_char_gen = curr_char_gen  # True if it's the current terminal being generalized in the Char Generalization Phase.
 
     def __repr__(self):
-        return "(%s)" % ' '.join([repr(a) for a in self.o if a])
+        return "(%s)" % ' '.join(repr(a) for a in self.o if a)
 
 
 # Alternations: If generalizing P alt[alpha]Q, then
@@ -593,7 +593,7 @@ def phase_1(alpha_in):
 
 
 def to_key(prefix, suffix=''):
-    return '<k%s%s>' % (''.join([str(s) for s in prefix]), suffix)
+    return '<k%s%s>' % (''.join(str(s) for s in prefix), suffix)
 
 
 # if step i generalizes P rep[alpha] Q to
