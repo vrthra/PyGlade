@@ -275,7 +275,7 @@ def gen_char(regex):
 
 
 def atomize(regex):
-    # Explode String-regexes into sequences of String-regexes of one characters.
+    # Explode String-regexes into sequences of String-regexes of one character.
     # e.g. ("abc")* -> ("a" "b" "c")*
 
     if isinstance(regex, Rep):
