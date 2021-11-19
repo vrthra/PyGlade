@@ -49,7 +49,7 @@ class Regex:
                 else:
                     yield a4
 
-        elif isinstance(self, One):
+        elif isinstance(self, String):
             assert not isinstance(self.o, Regex)
             yield self.o[-1]  # return last added character, or the original character if none were added.
         else:
@@ -65,7 +65,7 @@ class Regex:
                 return "(%s)" % ''.join(str(a) for a in self.arr)
             else:
                 return "(%s)" % ''.join(str(a) for a in self.arr)
-        elif isinstance(self, One):
+        elif isinstance(self, String):
             if len(self.o) > 1:
                 return "(%s)" % '|'.join(str(o).replace('*', '[*]').replace('(', '[(]').replace(')', '[)]') for o in self.o)
             else:
@@ -115,7 +115,7 @@ class Alts(Regex):
         return "(%s)" % ' | '.join(repr(a) for a in self.arr if a)
 
 
-class One(Regex):
+class String(Regex):
     def __init__(self, o, extra, generalized=0, curr_char_gen=False):
         self.o = o  # A list containing the original character and all possible character replacements.
         self.next_gen = extra  # Substrings are annotated with extra data to express possible further generalization options.
@@ -156,10 +156,10 @@ def gen_alt(alpha):
         assert alpha_1
         assert alpha_2
 
-        yield Alt(One([alpha_1], 1), One([alpha_2], 2), True)
+        yield Alt(String([alpha_1], 1), String([alpha_2], 2), True)
 
     if length:  # this is the final choice.
-        yield One([alpha], 0)
+        yield String([alpha], 0)
 
     return
 
@@ -179,7 +179,7 @@ def gen_alt(alpha):
 def gen_rep(alpha):
     length = len(alpha)
     if length < 2:  # if alpha is a single char, then return it as is, see Figure 2, Step R8
-        yield One([alpha], 0)
+        yield String([alpha], 0)
     else:
         for i in range(length):  # shorter alpha1 prioritized
             alpha_1 = alpha[:i]
@@ -191,15 +191,15 @@ def gen_rep(alpha):
                 assert alpha_2
 
                 if i == 0 and j == length:
-                    yield Rep(One([alpha_2], 2), True)
+                    yield Rep(String([alpha_2], 2), True)
                 elif i != 0 and j != length:
-                    yield Seq([One([alpha_1], 0), Rep(One([alpha_2], 2), True), One([alpha_3], 1)])
+                    yield Seq([String([alpha_1], 0), Rep(String([alpha_2], 2), True), String([alpha_3], 1)])
                 elif i == 0 and j != length:
-                    yield Seq([Rep(One([alpha_2], 2), True), One([alpha_3], 1)])
+                    yield Seq([Rep(String([alpha_2], 2), True), String([alpha_3], 1)])
                 elif i != 0 and j == length:
-                    yield Seq([One([alpha_1], 0), Rep(One([alpha_2], 2), True)])
+                    yield Seq([String([alpha_1], 0), Rep(String([alpha_2], 2), True)])
         if length:  # the final choice
-            yield One([alpha], 0)
+            yield String([alpha], 0)
     return
 
 
@@ -209,7 +209,7 @@ all_chars = [chr(i) for i in range(128)]
 
 def gen_char(regex):
     # This function traverses a regex, then finds a generalizable
-    # unit (One object). Then adds one alternative char to it and return.
+    # unit (String object). Then adds one alternative char to it and return.
     if isinstance(regex, Rep):
         x = gen_char(regex.a)
         if x == NON_GENERALIZABLE:  # We reached a node that is non-generalizable.
@@ -246,7 +246,7 @@ def gen_char(regex):
             i += 1
         return NON_GENERALIZABLE
 
-    elif isinstance(regex, One):
+    elif isinstance(regex, String):
         global ROLL_BACK
         if ROLL_BACK and regex.curr_char_gen:
             # We remove the last added char from the list of alternatives.
@@ -275,7 +275,7 @@ def gen_char(regex):
 
 
 def atomize(regex):
-    # Explode One-regexes into sequences of One-regexes of one characters.
+    # Explode String-regexes into sequences of String-regexes of one characters.
     # e.g. ("abc")* -> ("a" "b" "c")*
 
     if isinstance(regex, Rep):
@@ -295,14 +295,14 @@ def atomize(regex):
             i += 1
         return regex
 
-    elif isinstance(regex, One):
+    elif isinstance(regex, String):
         regex_orig = copy.deepcopy(regex)
         stg = regex.o[0]
         if len(stg) > 1:
             regex.o.pop()
-            return Seq([One([i], 0) for i in stg])
+            return Seq([String([i], 0) for i in stg])
 
-        return One(regex_orig.o[0], 0)
+        return String(regex_orig.o[0], 0)
 
 
 def newly_generalized_descendant(regex):
@@ -326,7 +326,7 @@ def newly_generalized_descendant(regex):
     elif isinstance(regex, Seq):
         return any(newly_generalized_descendant(obj) for obj in regex.arr)
 
-    elif isinstance(regex, One):
+    elif isinstance(regex, String):
         return False
 
 
@@ -354,7 +354,7 @@ def linearize_rep(regex):
             i += 1
         return regex
 
-    elif isinstance(regex, One):
+    elif isinstance(regex, String):
         return regex
 
 
@@ -385,7 +385,7 @@ def linearize_alt(regex):
             i += 1
         return regex
 
-    elif isinstance(regex, One):
+    elif isinstance(regex, String):
         return regex
 
 
@@ -488,7 +488,7 @@ def get_candidates(regex):
                         yield Seq(ay)
             i += 1
 
-    elif isinstance(regex, One):
+    elif isinstance(regex, String):
         if regex.next_gen == 0:
             yield NON_GENERALIZABLE
         elif regex.next_gen == 1:
@@ -507,9 +507,9 @@ def get_dict(regex):
         return {"Alt": [get_dict(regex.a1) , get_dict(regex.a2), regex.newly_generalized]}
     elif isinstance(regex, Seq):
         return {"Seq": [get_dict(obj) for obj in regex.arr]}
-    elif isinstance(regex, One):
+    elif isinstance(regex, String):
         regex.o.insert(0, str(regex.next_gen))
-        return {"One": regex.o}
+        return {"String": regex.o}
     else:
         return "Nothing to return!"
 
@@ -525,7 +525,7 @@ def phase_1(alpha_in):
     # The code below follows Algorithm 1, page 3 in the paper.
 
     # Seed input alpha_in is annotated rep(alpha_in)
-    curr_reg = One([alpha_in], 1)
+    curr_reg = String([alpha_in], 1)
 
     done = False
     while not done:
@@ -567,9 +567,9 @@ def phase_1(alpha_in):
             break
 
     # Before executing the Character Generalization Phase, we break strings in
-    # regex into separate chars, that is, given a One-regex, we break it into a
-    # Seq-regex that contains One-regexes each containing a single char. This
-    # way we can systematically generalize each char/terminal/sigma_i
+    # regex into separate chars, that is, given a String-regex, we break it into
+    # a Seq-regex that contains String-regexes each containing a single char.
+    # This way we can systematically generalize each char/terminal/sigma_i
     # separately.
     atomized_reg = atomize(curr_reg)
 
@@ -640,10 +640,10 @@ def extract_alt(regex, prefix):
     return g, to_key(prefix)
 
 
-def extract_one(regex, prefix):
-    if len(regex.o) == 1:  # one is not a non terminal
+def extract_string(regex, prefix):
+    if len(regex.o) == 1:  # string is a terminal character
         return {}, ''.join(regex.o[0])
-    else:  # Regex One is a non terminal, meaning it has been generalized to a list of n chars. Therefore we treat it as an Alt object with n alternatives. See example in section 6.2
+    else:  # string is a non terminal, meaning it has been generalized to a list of n chars. Therefore we treat it as an Alt object with n alternatives. See example in section 6.2
         return {to_key(prefix): [[t] for t in regex.o]}, to_key(prefix)
 
 
@@ -653,7 +653,7 @@ def phase_2(regex):
     # regex, and the generalization steps are non-terminals
     # and next, to equate the non-terminals in that grammar
     # to each other
-    # Alt, Rep, Seq, One
+    # Alt, Rep, Seq, String
     prefix = [0]
     g, k = extract_grammar(regex, prefix)
     return g, k
@@ -666,8 +666,8 @@ def extract_grammar(regex, prefix):
         return extract_alt(regex, prefix)
     elif isinstance(regex, Seq):
         return extract_seq(regex, prefix)
-    elif isinstance(regex, One):
-        return extract_one(regex, prefix)
+    elif isinstance(regex, String):
+        return extract_string(regex, prefix)
     elif isinstance(regex, Alts):
         return extract_alts(regex, prefix)
     assert False
