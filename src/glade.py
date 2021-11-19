@@ -258,17 +258,15 @@ def gen_char(regex):
             regex.curr_char_gen = False
             return NON_GENERALIZABLE
         else:
-            # Here we perform a generalization step.
+            # perform a generalization step.
             regex.curr_char_gen = True
             curr_char = all_chars[regex.generalized]
-            if curr_char != regex.o[0]:
-                regex.o.append(curr_char)
-            else:
-                # Try the next char in the list
+            if curr_char == regex.o[0]:
+                # skip adding this character since it is the initial one
                 regex.generalized += 1
                 curr_char = all_chars[regex.generalized]
-                regex.o.append(curr_char)
 
+            regex.o.append(curr_char)
             regex.generalized += 1
             return regex
 
