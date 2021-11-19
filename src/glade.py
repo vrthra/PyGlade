@@ -521,24 +521,24 @@ def get_dict(regex):
 
 
 def phase_1(alpha_in):
-    # Active learning of regular righthandside from bastani et al.
-    # The idea is as follows: We choose a single non-terminal to refine, and a single
-    # alternative at a time.
-    # Then, consider that single alternative as a sting, with each token a
-    # character. Then apply regular expression synthesis to determine the
-    # abstraction candidates. Place each abstraction candidate as the replacement
-    # for that non-terminal, and generate the minimum string. Evaluate and verify that
-    # the string is accepted (adv: verify that the derivation tree is
-    # as expected). Do this for each alternative, and we have the list of actual
-    # alternatives.
-
-    # seed input alpha_in is annotated rep(alpha_in)
+    # Active learning of regular right-hand side from Bastani et al.
+    #
+    # The idea is as follows: We choose a single non-terminal to refine, and a
+    # single alternative at a time. Then, consider that single alternative as a
+    # string, with each token a character. Then apply regular expression
+    # synthesis to determine the abstraction candidates. Place each abstraction
+    # candidate as the replacement for that non-terminal, and generate the
+    # minimum string. Evaluate and verify that the string is accepted (adv:
+    # verify that the derivation tree is as expected). Do this for each
+    # alternative, and we have the list of actual alternatives.
+    #
+    # Seed input alpha_in is annotated rep(alpha_in).
     # Then, each generalization step selects a single bracketed substring
     # T[alpha] and generates candidates based on decompositions of alpha
     # i.e. an expression of alpha as alpha = a_1, a_2, ..a_k
-
+    #
     # Each iteration of the while loop corresponds to one generalization step.
-    # Code below follows Algorithm 1, page 3 in the paper.
+    # The code below follows Algorithm 1, page 3 in the paper.
 
     done = False
     curr_reg = One([alpha_in], 1)
