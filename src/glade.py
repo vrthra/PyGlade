@@ -1,15 +1,13 @@
 #!/usr/bin/env python
+import copy
+import itertools
 import json
 import random
 import sys
-import itertools
-import copy
-import check
-import fuzz
-import config
-import pprint
-import time
 
+import check
+import config
+import fuzz
 
 checks = 0
 unmerged_grammar = {}

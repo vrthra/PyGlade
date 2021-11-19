@@ -1,9 +1,13 @@
 # ### Fuzzer
 
-import random
-import config
-import pprint
 import copy
+import json
+import random
+
+import check
+import config
+
+
 # +
 class Fuzzer:
     def __init__(self, grammar):
@@ -161,8 +165,6 @@ class LimitFuzzer(Fuzzer):
                     cost[k][str(rule)] = float('inf')
         return cost
 
-import json
-import check
 def main(fn):
     with open(fn) as f:
         mgrammar = json.load(fp=f)
