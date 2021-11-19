@@ -759,7 +759,7 @@ def main():
     regexes = []
 
     # We read inputs from a file.
-    file1 = open('inputs', 'r')
+    file1 = open('inputs')
     Lines = file1.readlines()
 
     for input in Lines:
