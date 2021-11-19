@@ -298,10 +298,8 @@ def atomize(regex):
         stg = regex.o[0]
         if len(stg) > 1:
             regex.o.pop()
-            arr = []
-            for i in stg:
-                arr.append(One([i], 0))
-            return Seq(arr)
+            return Seq([One([i], 0) for i in stg])
+
         return One(regex_orig.o[0], 0)
 
 
@@ -324,10 +322,7 @@ def newly_generalized_descendant(regex):
             return False
 
     elif isinstance(regex, Seq):
-        for obj in regex.arr:
-            if newly_generalized_descendant(obj):
-                return True
-        return False
+        return any(newly_generalized_descendant(obj) for obj in regex.arr)
 
     elif isinstance(regex, One):
         return False
@@ -659,12 +654,7 @@ def extract_one(regex, prefix):
     if len(regex.o) == 1:  # one is not a non terminal
         return {}, ''.join(regex.o[0])
     else:  # Regex One is a non terminal, meaning it has been generalized to a list of n chars. Therefore we treat it as an Alt object with n alternatives. See example in section 6.2
-        alts = []
-        g = {}
-        for t in regex.o:
-            alts.append([t])
-        g[to_key(prefix)] = alts
-        return g, to_key(prefix)
+        return {to_key(prefix): [[t] for t in regex.o]}, to_key(prefix)
 
 
 def phase_2(regex):
