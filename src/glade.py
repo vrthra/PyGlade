@@ -216,7 +216,7 @@ def gen_char(regex):
 
     elif isinstance(regex, One):
         global ROLL_BACK
-        if ROLL_BACK == True and regex.curr_char_gen == True:
+        if ROLL_BACK and regex.curr_char_gen:
             # We remove the last added char from the list of alternatives.
             del regex.o[-1]
             ROLL_BACK = False
@@ -436,7 +436,7 @@ def get_candidates(regex):
             else:
                 exp = True
                 yield Alt(x, regex.a2, False)
-        if exp == False:
+        if not exp:
             for x in get_candidates(regex.a2):
                 if x == NON_GENERALIZABLE:
                     continue
@@ -446,7 +446,7 @@ def get_candidates(regex):
     elif isinstance(regex, Seq):
         i = 0
         for obj in regex.arr:
-            if exp == False:
+            if not exp:
                 for x in get_candidates(obj):
                     if x == NON_GENERALIZABLE:
                         continue
@@ -505,7 +505,7 @@ def phase_1(alpha_in):
     done = False
     curr_reg = One([alpha_in], 1)
     global CHECKS
-    while done == False:
+    while not done:
         next_step = False
         started = False
         # The get_candidates function supplies candidates, and is equivalent to the function "ConstructCandidates()" in the paper.
@@ -515,7 +515,7 @@ def phase_1(alpha_in):
                 # No more generalizations are possible. We are done with Phase 1.
                 done = True
                 break
-            elif next_step == True:
+            elif next_step:
                 # We go to the next generalization step.
                 break
             all_true = False
@@ -549,7 +549,7 @@ def phase_1(alpha_in):
                 curr_reg = regex
                 next_step = True
 
-        if started == False:
+        if not started:
             break
 
     atomized_reg = atomize(curr_reg)
@@ -679,9 +679,9 @@ def gen_new_grammar(a, b, key, cfgx):
                         test = False
                     included = True
                     break
-        if included == True:
+        if included:
             key = k
-            if test == False: 
+            if not test:
                 return cfg, key, test
             break
 
@@ -696,7 +696,7 @@ def gen_new_grammar(a, b, key, cfgx):
             # This way we equate the non-terminals a and b. See example in Section 5.
             new_alts.append(new_rule)
 
-    if included == False:
+    if not included:
         rules = ([[a]] + [[b]])  # Make grammar compact.
         defs = {str(r):r for r in  rules}
         new_g[key] = [defs[l] for l in defs]
@@ -705,7 +705,7 @@ def gen_new_grammar(a, b, key, cfgx):
 def consider_merging(a, b, key, cfg, start):
     global UNMERGED_GRAMMAR
     g, key, test = gen_new_grammar(a, b, key, cfg)
-    if test == False: return False
+    if not test: return False
 
     nodes = [a, b]
     for i in range(2):
