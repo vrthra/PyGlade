@@ -149,11 +149,13 @@ class One(Regex):
 
 def gen_alt(alpha):
     length = len(alpha)
-    # alpha_1 != e and alpha_2 != e
     for i in range(1, length):  # shorter alpha_1 prioritized
         alpha_1, alpha_2 = alpha[:i], alpha[i:]
+
+        # alpha_1 != epsilon and alpha_2 != epsilon
         assert alpha_1
         assert alpha_2
+
         yield Alt(One([alpha_1], 1), One([alpha_2], 2), True)
 
     if length:  # this is the final choice.
@@ -181,11 +183,13 @@ def gen_rep(alpha):
     else:
         for i in range(length):  # shorter alpha1 prioritized
             alpha_1 = alpha[:i]
-            # alpha_2 != e
             for k in range(i + 1, length + 1):  # longer alpha2 prioritized, see section 4.2
                 j = length - (k - (i + 1))      # j is the inverse of k.
                 alpha_2, alpha_3 = alpha[i:j], alpha[j:]
+
+                # alpha_2 != epsilon
                 assert alpha_2
+
                 if i == 0 and j == length:
                     yield Rep(One([alpha_2], 2), True)
                 elif i != 0 and j != length:
