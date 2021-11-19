@@ -155,8 +155,10 @@ def gen_alt(alpha):
         assert alpha_1
         assert alpha_2
         yield Alt(One([alpha_1], 1), One([alpha_2], 2), True)
+
     if length:  # this is the final choice.
-        yield One([alpha], 1)
+        yield One([alpha], 0)
+
     return
 
 
