@@ -214,74 +214,51 @@ all_chars = [chr(i) for i in range(128)]
 
 
 def gen_char(regex):
-    # This function traverses a regex, then finds a generalizable
-    # unit (String object). Then adds one alternative char to it and return.
+    # This function transforms a regex in-place by incrementally adding
+    # alternative terminal characters. After each insertion, the modified
+    # terminal is yield to give a chance to the calling process to check and
+    # potentially rollback the change.
+
     if isinstance(regex, Rep):
-        x = gen_char(regex.a)
-        if x == NON_GENERALIZABLE:  # We reached a node that is non-generalizable.
-            return NON_GENERALIZABLE
-        else:
-            return Rep(x, False)
+        regex.newly_generalized = False
+        yield from gen_char(regex.a)
 
     elif isinstance(regex, Alt):
-        x = gen_char(regex.a1)
-        if x != NON_GENERALIZABLE:
-            new_reg = Alt(x, regex.a2, False)
-            new_reg.a1_gen = True
-            return new_reg
-        else:
-            regex.a1_gen = False
-            x = gen_char(regex.a2)
-            if x != NON_GENERALIZABLE:
-                new_reg = Alt(regex.a1, x, False)
-                new_reg.a2_gen = True
-                return new_reg
-            else:
-                regex.a1_gen = False
-                regex.a2_gen = False
-                return NON_GENERALIZABLE
+        regex.newly_generalized = False
+        regex.a1_gen = True
+        yield from gen_char(regex.a1)
+
+        regex.a1_gen = False
+        regex.a2_gen = True
+        yield from gen_char(regex.a2)
+
+        regex.a1_gen = False
+        regex.a2_gen = False
 
     elif isinstance(regex, Seq):
-        i = 0
         for obj in regex.arr:
-            x = gen_char(obj)
-            if x != NON_GENERALIZABLE:
-                ay = copy.deepcopy(regex.arr)
-                ay[i] = x
-                return Seq(ay)
-            i += 1
-        return NON_GENERALIZABLE
+            yield from gen_char(obj)
 
     elif isinstance(regex, String):
-        global ROLL_BACK
-        if ROLL_BACK and regex.curr_char_gen:
-            # We remove the last added char from the list of alternatives.
-            del regex.o[-1]
-            ROLL_BACK = False
-            return regex
-        if regex.generalized > 126:
-            # All chars have been tried, we mark current unit as non-generalizable.
-            regex.curr_char_gen = False
-            return NON_GENERALIZABLE
-        else:
-            # Here we perform a generalization step.
+        while regex.generalized < len(all_chars) - 1:
+            # perform a generalization step.
             regex.curr_char_gen = True
             curr_char = all_chars[regex.generalized]
-            if curr_char != regex.o[0]:
-                regex.o.append(curr_char)
-            elif regex.generalized < 127:  # Try the next char in the list
+            if curr_char == regex.o[0]:
+                # skip adding this character since it is the initial one
                 regex.generalized += 1
                 curr_char = all_chars[regex.generalized]
-                regex.o.append(curr_char)
-            elif regex.generalized == 127:  # All chars have been tried
-                regex.curr_char_gen = False
-                return NON_GENERALIZABLE
+
+            regex.o.append(curr_char)
             regex.generalized += 1
-            return regex
+            yield regex
+
+        # All chars have been tried, we mark current unit as non-generalizable.
+        regex.curr_char_gen = False
 
 
 def atomize(regex):
-    # Explode String-regexes into sequences of String-regexes of one characters.
+    # Explode String-regexes into sequences of String-regexes of one character.
     # e.g. ("abc")* -> ("a" "b" "c")*
 
     if isinstance(regex, Rep):
@@ -395,34 +372,21 @@ def linearize_alt(regex):
         return regex
 
 
-ROLL_BACK = False  # Roll back last character generalization step.
-
-
 def character_generalization_phase(regex):
-    # Character generalization phase that generalizes
-    # terminals in the synthesized regular expression R.
-    # The algorithm considers generalizing each terminal
-    # in the regex to every (different) terminal in Sigma.
-    # Section 6.2 Page 8.
-    global ROLL_BACK
-    while True:
-        # At each iteration, we first save the current regex before working on the regex.
-        regexcp = copy.deepcopy(regex)
-        regex = gen_char(regex)
-        if regex == NON_GENERALIZABLE:
-            # No more char generalizations are possible. We are done with Char Generalization Phase.
-            # Return last successfully generalized regex.
-            return regexcp
-        else:
-            exprs = list(to_strings(regex))
-            for expr in exprs:
-                v = check.check(expr, regex)
-                if not v:  # this regex failed.
-                    ROLL_BACK = True
-                    gen_char(regex)
-                    break  # one sample of regex failed. Exit
-                else:
-                    ROLL_BACK = False
+    # Character generalization phase that generalizes terminals in the
+    # synthesized regular expression `regex`. The algorithm considers
+    # generalizing each terminal in the regex to every (different) terminal in
+    # Sigma.
+    #
+    # See Section 6.2 Page 8.
+
+    for generalization_attempt in gen_char(regex):
+        exprs = list(to_strings(regex))
+        if not all(check.check(expr, regex) for expr in exprs):
+            # rollback the last change
+            del generalization_attempt.o[-1]
+
+    return regex
 
 
 def to_strings(regex):
