@@ -18,6 +18,7 @@ class Regex:
             if self.newly_generalized:
                 yield from self.a1.to_rules()
                 yield from self.a2.to_rules()
+                self.newly_generalized = False
             elif self.a1_gen or newly_generalized_descendant(self.a1):  # Expand the first alternative if it, or one of its descendants were newly generalized.
                 yield from self.a1.to_rules()
             elif self.a2_gen or newly_generalized_descendant(self.a2):  # Expand the second alternative if it, or one of its descendants were newly generalized.
@@ -35,6 +36,7 @@ class Regex:
                 for a3 in self.a.to_rules():
                     for n in config.SAMPLES_FOR_REP:
                         yield a3 * n
+                self.newly_generalized = False
             else:  # It's part of the context, ignore rule.
                 for a3 in self.a.to_rules():
                     yield a3
