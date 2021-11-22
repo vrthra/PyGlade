@@ -209,7 +209,7 @@ def gen_rep(alpha):
     return
 
 
-# List of all printable ASCII characters.
+# List of all ASCII characters.
 all_chars = [chr(i) for i in range(128)]
 
 
