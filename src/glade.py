@@ -157,7 +157,13 @@ def gen_alt(alpha):
         yield Alt(String([alpha_1], 1), String([alpha_2], 2), True)
 
     if length:  # this is the final choice.
-        yield String([alpha], 0)
+        # There is an inconsistency between the Figure 2 and the Section 4.1
+        # We chose to follow the Figure 2.
+        yield String([alpha], 1)
+        # The text requires this
+        # yield String([alpha], 0)
+        # However, we note that there is no functionality difference between
+        # both.
 
     return
 
