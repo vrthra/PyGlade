@@ -171,7 +171,7 @@ class LimitFuzzer(Fuzzer):
 
 
 def main(fn):
-    with open(fn) as f:
+    with open(fn, encoding='ascii') as f:
         mgrammar = json.load(fp=f)
     fuzzer = LimitFuzzer(mgrammar)
     correct = 0
@@ -189,5 +189,4 @@ def main(fn):
 
 if __name__ == '__main__':
     import sys
-
     main(sys.argv[1])

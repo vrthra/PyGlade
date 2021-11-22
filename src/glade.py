@@ -744,7 +744,7 @@ def main():
     inputs = []
     regexes = []
 
-    with open('inputs') as f:
+    with open('inputs', encoding='ascii') as f:
         inputs = [line.strip() for line in f]
 
     if len(inputs) == 0:
@@ -767,14 +767,14 @@ def main():
 
     cfg, start = phase_2(regex)
 
-    with open('grammar_.json', 'w+') as f:
+    with open('grammar_.json', 'w+', encoding='ascii') as f:
         json.dump({'<start>': [[start]], **cfg}, indent=4, fp=f)
 
     print('\n+++++ Merging Phase Begins +++++\n')
     merged = phase_3(cfg, start)
 
     # Save the final grammar in the fuzzing book format
-    with open('grammar.json', 'w+') as f:
+    with open('grammar.json', 'w+', encoding='ascii') as f:
         json.dump({'<start>': [[start]], **merged}, indent=4, fp=f)
 
 
