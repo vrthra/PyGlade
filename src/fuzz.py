@@ -119,7 +119,7 @@ class CheckFuzzer(Fuzzer):
                     cost[k][str(rule)] = float('inf')
         return cost
 
-
+# LimitFuzzer is a grammar-based input generator. Each expansion is assigned a cost. A maximum depth is specified to avoid infinite or costly inputs.
 class LimitFuzzer(Fuzzer):
     def symbol_cost(self, grammar, symbol, seen):
         if symbol in self.key_cost:
@@ -171,7 +171,8 @@ class LimitFuzzer(Fuzzer):
 
 
 def main(fn):
-    with open(fn) as f:
+    # We read the grammar from a file then generate inputs using the grammar.
+    with open(fn, encoding='ascii') as f:
         mgrammar = json.load(fp=f)
     fuzzer = LimitFuzzer(mgrammar)
     correct = 0
@@ -189,5 +190,4 @@ def main(fn):
 
 if __name__ == '__main__':
     import sys
-
     main(sys.argv[1])
