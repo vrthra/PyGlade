@@ -8,7 +8,9 @@ import sys
 import check
 import config
 import fuzz
-
+from random import choice
+from string import ascii_lowercase
+random.seed(10)
 UNMERGED_GRAMMAR = {}
 
 
@@ -546,6 +548,12 @@ def phase_1(alpha_in):
 def to_key(prefix, suffix=''):
     return '<k%s%s>' % (''.join(str(s) for s in prefix), suffix)
 
+# Add a random suffix to grammar nonterminal labels to make them unique. This is to avoid any conflict in key names. 
+def make_uniq(prefix):
+    randompre = ['_']
+    for i in range(5): randompre.append(choice(ascii_lowercase))
+    prefix = prefix + randompre
+    return prefix
 
 # if step i generalizes P rep[alpha] Q to
 # P alpha_1 (alt[alpha_2])* rep[alpha_3] Q
@@ -573,6 +581,7 @@ def extract_seq(regex, prefix):
         g_, k = extract_grammar(item, prefix + [i])
         g.update(g_)
         rule.append(k)
+    prefix = make_uniq(prefix)
     g[to_key(prefix)] = [rule]
     return g, to_key(prefix)
 
@@ -585,14 +594,14 @@ def extract_alts(regex, prefix):
         g_, k = extract_grammar(item, prefix + [i])
         g.update(g_)
         rules.append([k])
-
+    prefix = make_uniq(prefix)
     g[to_key(prefix)] = rules
     return g, to_key(prefix)
 
 
 def extract_rep(regex, prefix):
-    # a
     g, k = extract_grammar(regex.a, prefix + [0])
+    prefix = make_uniq(prefix)
     g[to_key(prefix, '_rep')] = [[to_key(prefix, '_rep'), k], []]
     return g, to_key(prefix, '_rep')
 
@@ -602,6 +611,7 @@ def extract_alt(regex, prefix):
     g1, k1 = extract_grammar(regex.a1, prefix + [0])
     g2, k2 = extract_grammar(regex.a2, prefix + [1])
     g = {**g1, **g2}
+    prefix = make_uniq(prefix)
     g[to_key(prefix)] = [[k1], [k2]]
     return g, to_key(prefix)
 
@@ -610,7 +620,8 @@ def extract_string(regex, prefix):
     if len(regex.o) == 1:  # string is a terminal character
         return {}, ''.join(regex.o[0])
     else:  # string is a non terminal, meaning it has been generalized to a list of n chars. Therefore we treat it as an Alt object with n alternatives. See example in section 6.2
-        return {to_key(prefix): [[t] for t in regex.o]}, to_key(prefix)
+        prefix = make_uniq(prefix)
+        return {to_key(prefix, '_chr'): [[t] for t in regex.o]}, to_key(prefix, '_chr')
 
 
 def phase_2(regex):
