@@ -83,8 +83,8 @@ class Alt(Regex):
         self.newly_generalized = extra  # extra data used to mark if this object needs to be considered in the next check (if True) or not (if False).
                                         # That is, whether it's a part of the Context or not. See section 4.3:
                                         # Residual capturing the portion of L tilde that is generalized compared to L hat.
-        self.a1_gen = a1_gen
-        self.a2_gen = a2_gen
+        self.a1_gen = a1_gen # True when the first alternative was newly generalized in character generalization phase.
+        self.a2_gen = a2_gen # True when the second alternative was newly generalized in character generalization phase.
 
     def __repr__(self):
         return "(%s|%s)" % (self.a1, self.a2)
