@@ -220,19 +220,15 @@ def gen_char(regex):
     # potentially rollback the change.
 
     if isinstance(regex, Rep):
-        regex.newly_generalized = False
         yield from gen_char(regex.a)
 
     elif isinstance(regex, Alt):
-        regex.newly_generalized = False
         regex.a1_gen = True
         yield from gen_char(regex.a1)
-
         regex.a1_gen = False
+
         regex.a2_gen = True
         yield from gen_char(regex.a2)
-
-        regex.a1_gen = False
         regex.a2_gen = False
 
     elif isinstance(regex, Seq):
