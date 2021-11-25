@@ -466,6 +466,21 @@ def get_candidates(regex):
             regex.next_gen = 0
 
 
+# This is a helper function. It returns a string which represents the regex with annotations
+def get_dict(regex):
+    if isinstance(regex, Rep):
+        return {"Rep": [get_dict(regex.a), regex.newly_generalized]}
+    elif isinstance(regex, Alt):
+        return {"Alt": [get_dict(regex.a1) , get_dict(regex.a2), regex.newly_generalized]}
+    elif isinstance(regex, Seq):
+        return {"Seq": [get_dict(obj) for obj in regex.arr]}
+    elif isinstance(regex, String):
+        regex.o.insert(0, str(regex.next_gen))
+        return {"String": regex.o}
+    else:
+        return "Nothing to return!"
+
+
 def phase_1(alpha_in):
     # Active learning of regular right-hand side from Bastani et al.
     #
