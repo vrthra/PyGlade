@@ -386,7 +386,7 @@ def character_generalization_phase(regex):
 
     return regex
 
-
+# to_strings() function is equivalent to the function ConstructChecks() in the paper.
 def to_strings(regex):
     """
     We are given the token, and the regex that is being checked to see if it
@@ -415,7 +415,6 @@ str_db = {}
 regex_map = {}
 valid_regexes = set()
 NON_GENERALIZABLE = -1
-
 
 # The get_candidates function is the generator of candidates. It's called at each step once, it selects a terminal substring
 # then generates all possible generalization for that substring. Each representing a candidate regex.
@@ -467,21 +466,6 @@ def get_candidates(regex):
             regex.next_gen = 0
 
 
-# This helper function is here only to help print the regex hierarchy.
-def get_dict(regex):
-    if isinstance(regex, Rep):
-        return {"Rep": [get_dict(regex.a), regex.newly_generalized]}
-    elif isinstance(regex, Alt):
-        return {"Alt": [get_dict(regex.a1) , get_dict(regex.a2), regex.newly_generalized]}
-    elif isinstance(regex, Seq):
-        return {"Seq": [get_dict(obj) for obj in regex.arr]}
-    elif isinstance(regex, String):
-        regex.o.insert(0, str(regex.next_gen))
-        return {"String": regex.o}
-    else:
-        return "Nothing to return!"
-
-
 def phase_1(alpha_in):
     # Active learning of regular right-hand side from Bastani et al.
     #
@@ -507,7 +491,6 @@ def phase_1(alpha_in):
                 break
 
             regex = linearize_rep(regex)
-            # to_strings() function is equivalent to the function ConstructChecks() in the paper.
             exprs = list(to_strings(regex))
 
             ay = copy.deepcopy(regex)
@@ -555,6 +538,7 @@ def make_uniq(prefix):
     prefix = prefix + randompre
     return prefix
 
+
 # if step i generalizes P rep[alpha] Q to
 # P alpha_1 (alt[alpha_2])* rep[alpha_3] Q
 # we generate productions
@@ -564,6 +548,11 @@ def make_uniq(prefix):
 # where A_k comes from rep[alpha_3] and
 # A_j comes from alt[Alpha_2]
 
+def extract_rep(regex, prefix):
+    g, k = extract_grammar(regex.a, prefix + [0])
+    prefix = make_uniq(prefix)
+    g[to_key(prefix, '_rep')] = [[to_key(prefix, '_rep'), k], []]
+    return g, to_key(prefix, '_rep')
 
 # If step i generalizes P alt[alpha] Q to
 # P (rep[alpha_1] + alt[alpha_2]) Q
@@ -572,6 +561,14 @@ def make_uniq(prefix):
 # where A_j comes from rep[alpha_1] and
 # A_k comes from alt[alpha_2]
 
+def extract_alt(regex, prefix):
+    # a1, a2
+    g1, k1 = extract_grammar(regex.a1, prefix + [0])
+    g2, k2 = extract_grammar(regex.a2, prefix + [1])
+    g = {**g1, **g2}
+    prefix = make_uniq(prefix)
+    g[to_key(prefix)] = [[k1], [k2]]
+    return g, to_key(prefix)
 
 def extract_seq(regex, prefix):
     # Each item gets its own grammar with prefix.
@@ -585,7 +582,6 @@ def extract_seq(regex, prefix):
     g[to_key(prefix)] = [rule]
     return g, to_key(prefix)
 
-
 def extract_alts(regex, prefix):
     # a1, a2
     g = {}
@@ -597,24 +593,6 @@ def extract_alts(regex, prefix):
     prefix = make_uniq(prefix)
     g[to_key(prefix)] = rules
     return g, to_key(prefix)
-
-
-def extract_rep(regex, prefix):
-    g, k = extract_grammar(regex.a, prefix + [0])
-    prefix = make_uniq(prefix)
-    g[to_key(prefix, '_rep')] = [[to_key(prefix, '_rep'), k], []]
-    return g, to_key(prefix, '_rep')
-
-
-def extract_alt(regex, prefix):
-    # a1, a2
-    g1, k1 = extract_grammar(regex.a1, prefix + [0])
-    g2, k2 = extract_grammar(regex.a2, prefix + [1])
-    g = {**g1, **g2}
-    prefix = make_uniq(prefix)
-    g[to_key(prefix)] = [[k1], [k2]]
-    return g, to_key(prefix)
-
 
 def extract_string(regex, prefix):
     if len(regex.o) == 1:  # string is a terminal character
@@ -772,6 +750,7 @@ def main():
 
     print("Final regex: " + str(regex))
 
+    # Translate the final regex into a CFG
     cfg, start = phase_2(regex)
 
     with open('grammar_.json', 'w+', encoding='ascii') as f:
